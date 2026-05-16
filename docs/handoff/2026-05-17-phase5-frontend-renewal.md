@@ -100,7 +100,7 @@ semi-senti/
    │  ├─ use-stocks.ts              ⬜ T-054
    │  └─ use-auto-refresh.ts        ⬜ T-054 (5분 polling, T-034 매핑)
    ├─ lib/
-   │  ├─ db.ts                      ⬜ T-051 (better-sqlite3 read-only)
+   │  ├─ db.ts                      ⬜ T-051 (sql.js read-only, WASM 기반)
    │  ├─ snapshot.ts                ⬜ T-052 (DashboardSnapshot 빌더 포팅)
    │  ├─ classify-sentiment.ts      ⬜ T-052 (data_provider.classify_sentiment 포팅)
    │  ├─ types.ts                   ✅ DashboardSnapshot 1:1 미러
@@ -150,7 +150,7 @@ semi-senti/
 ```
 SQLite (db/semi_senti.sqlite)
         ↓  read-only
- web/lib/db.ts  (better-sqlite3 싱글톤)
+ web/lib/db.ts  (sql.js WASM 싱글톤)
         ↓
  web/lib/snapshot.ts  (Python DashboardSnapshot 동일 shape 빌드)
         ↓
@@ -251,7 +251,7 @@ SQLite (db/semi_senti.sqlite)
 | 1 | Next.js 14 vs 15 | **14.2.5 고정** (안정성) | Next 15 + React 19로 마이그할지는 차후 |
 | 2 | 데이터 어댑터 | **Route Handler가 SQLite 직접 read-only 조회** | 분석 엔진 신규 호출이 필요해지면 FastAPI(T-058) 추가 |
 | 3 | `tailwind.config.js` vs `.ts` | **`.ts`** (Next.js+TS 표준 관행) | 사용자 원문은 `.js`였음 — 필요 시 `.js`로 변환 가능 |
-| 4 | Node.js 버전 | **20 LTS 권장** | `better-sqlite3` native 빌드 확인 필요 (Windows 환경) |
+| 4 | Node.js 버전 | **20+ (24 지원 확인됨)** | `sql.js` 사용으로 네이티브 빌드 불필요 |
 | 5 | i18n 라이브러리 | 미정 | `next-intl` 또는 `react-intl` — 필요해지는 시점에 결정 |
 
 ---
@@ -261,7 +261,7 @@ SQLite (db/semi_senti.sqlite)
 ```powershell
 cd web
 copy .env.local.example .env.local
-npm install        # better-sqlite3 prebuild 실패 시 로그 공유 필요
+npm install        # sql.js 사용 — 네이티브 빌드 불필요
 npm run typecheck  # 0 error 기대
 npm run dev        # http://localhost:3000 → 컬러 스와치 6개 보이면 OK
 ```

@@ -17,6 +17,8 @@
 
 ### Changed
 
+- `better-sqlite3` → `sql.js` (WASM 기반) 교체: Windows/Node 24 환경에서 네이티브 빌드 문제 해결
+
 ### Fixed
 
 ### Deprecated

@@ -166,7 +166,7 @@
 
 | # | 상태 | 작업 | 우선순위 | 비고 |
 |---|------|------|----------|------|
-| T-051 | ⬜ | `web/lib/db.ts` — `better-sqlite3` read-only 싱글톤 | P1 | 환경변수 `SEMI_SENTI_DB_PATH` |
+| T-051 | ⬜ | `web/lib/db.ts` — `sql.js` (WASM) read-only 싱글톤 | P1 | 환경변수 `SEMI_SENTI_DB_PATH`, 네이티브 빌드 불필요 |
 | T-052 | ⬜ | `web/lib/snapshot.ts` — Python `DashboardSnapshot` 동일 shape 빌더 | P1 | `classify_sentiment` 포팅 포함 |
 | T-053 | ⬜ | Route Handler `/api/stocks`, `/api/snapshot/[code]`, `/api/health` 구현 | P1 | no-store, JSON |
 | T-054 | ⬜ | `hooks/use-snapshot`, `hooks/use-stocks`, `hooks/use-auto-refresh` (SWR) | P1 | T-034 자동 갱신 매핑 (5분) |
