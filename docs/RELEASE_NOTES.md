@@ -19,6 +19,8 @@
 - (T-051~T-054) Next 데이터 레이어 — `sql.js` read-only 싱글톤, `snapshot` 빌더, `/api/stocks`·`/api/snapshot/[code]`·`/api/health`, SWR 훅 및 메인 페이지 실데이터 연동
 - (T-055) 대시보드 카드 6종 — `SentimentGauge`(SVG 반원), `KeywordTrend`, `FinancialSummary`, `CyclePanel`, `StaleBanner`, `DivergenceBadge`
 - (T-056) `SignalChart` (lightweight-charts v4.2 캔들+밴드+마커) + `SignalMarkerPopover` (클릭 시 시그널 근거 표시)
+- (T-057) `/admin` 관리자 페이지 — 종목 CRUD 테이블(`StockTable`), 시스템 모니터(`SystemMonitor`), 탭 UI + API routes (`/api/admin/stocks`, `/api/admin/system`)
+- (T-058) Python FastAPI 어댑터 (`src/semi_senti/api/`) — health, 종목 CRUD, 시스템 상태, 수동 갱신(가격·뉴스·감성·시그널·사이클) + Next.js `/py-api/*` 프록시 rewrite
 
 ### Changed
 

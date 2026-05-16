@@ -11,8 +11,8 @@
 - 프로젝트: **Semi Senti** — 반도체 특화 NLP 감성 + 펀더멘털 매매 시그널 서비스.
 - Phase 1~4 (Python 백엔드 · Streamlit 대시보드) **100% 완료**.
 - Phase 5 = 프론트엔드 리뉴얼: Streamlit → **Next.js 14 + Tailwind + Shadcn UI + Lucide React** (Claude 스타일 다크).
-- 현 위치: **T-051 ~ T-054 ✅ 완료** (데이터 레이어 + API + SWR).
-- 다음 작업: **T-055 (소형 대시보드 카드들) → T-056 (`SignalChart` + 마커 Popover)**.
+- 현 위치: **Phase 5 전체 완료 (T-048 ~ T-058)**.
+- 모든 Task 완료: 58/58 (Phase 1-5 전체 완료).
 
 ---
 

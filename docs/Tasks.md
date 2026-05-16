@@ -1,7 +1,7 @@
 # Semi Senti — Tasks.md
 
 > **마지막 업데이트:** 2026-05-17  
-> **전체 진행률:** 56 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
+> **전체 진행률:** 58 / 58 완료 (Phase 1-5 완료)  
 > 상태 범례: `⬜ 대기` · `🔄 진행 중` · `✅ 완료` · `🚫 차단됨` · `❌ 제외`
 
 ---
@@ -144,7 +144,7 @@
 
 ---
 
-## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 9 / 11 ]`
+## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 11 / 11 ]`
 
 > **목표:** 기존 Streamlit 대시보드를 Next.js 14 + Tailwind + Shadcn UI 기반의
 > Claude 스타일(Clean / Minimal / Rich Data Visual) SPA로 재구축한다.  
@@ -182,8 +182,8 @@
 
 | # | 상태 | 작업 | 우선순위 | 비고 |
 |---|------|------|----------|------|
-| T-057 | ⬜ | `/admin` 페이지 — 종목 CRUD 테이블 + 시스템 모니터 | P2 | T-046/T-047 매핑 |
-| T-058 | ⬜ | (조건부) `src/semi_senti/api/` FastAPI 어댑터 — 분석 엔진 트리거가 필요해질 때만 | P2 | Streamlit 대시보드 deprecation 결정 시점 |
+| T-057 | ✅ | `/admin` 페이지 — 종목 CRUD 테이블 + 시스템 모니터 | P2 | StockTable + SystemMonitor + Tabs, Next.js API routes `/api/admin/stocks` · `/api/admin/system` |
+| T-058 | ✅ | `src/semi_senti/api/` FastAPI 어댑터 — 분석 엔진 트리거 | P2 | FastAPI app (health, CRUD, status, manual_refresh), pyproject.toml `[api]` optional dep, Next.js `/py-api/*` rewrite |
 
 ---
 

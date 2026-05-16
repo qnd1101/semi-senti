@@ -2,8 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    // sql.js: WASM 기반 SQLite (네이티브 바인딩 없음, T-051)
     serverComponentsExternalPackages: ["sql.js"],
+  },
+  async rewrites() {
+    const pythonApi = process.env.PYTHON_API_URL || "http://127.0.0.1:8000";
+    return [
+      {
+        source: "/py-api/:path*",
+        destination: `${pythonApi}/api/:path*`,
+      },
+    ];
   },
 };
 
