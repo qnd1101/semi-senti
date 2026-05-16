@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Semi Senti — Claude-style minimal dark theme.
+ *
+ * 색상 규약 (PRD §4.3, §F-3.2)
+ *  - BUY  / Greed   → emerald (#10b981)
+ *  - SELL / Fear    → rose    (#f43f5e)
+ *  - HOLD / Neutral → zinc-500 회색 계열
+ *  - Divergence bullish → amber-400 (강세 황색)
+ *  - Divergence bearish → violet-500 (약세 보라)
+ */
+
+@layer base {
+  :root {
+    /* light 토큰은 SSR fallback 용 — 실제 서비스는 .dark 강제 */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+
+    --radius: 0.75rem;
+
+    /* 시맨틱 시그널 토큰 (light) */
+    --signal-buy: 158 64% 40%;
+    --signal-sell: 350 89% 60%;
+    --signal-hold: 240 5% 50%;
+    --divergence-bullish: 38 92% 50%;
+    --divergence-bearish: 262 83% 58%;
+    --sentiment-fear: 350 89% 60%;
+    --sentiment-neutral: 240 5% 64%;
+    --sentiment-greed: 158 64% 40%;
+  }
+
+  .dark {
+    /*
+     * Claude 스타일 다크: Zinc-950 기반의 깊은 블랙.
+     *  - background: zinc-950 (#09090b)  → 240 10% 3.9%
+     *  - card:       zinc-900 (#18181b)  → 240 6% 10%
+     *  - border:     zinc-800 (#27272a)  → 240 4% 16%
+     *  - muted-fg:   zinc-400 (#a1a1aa)  → 240 5% 65%
+     */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 6% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 6% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 240 5% 84%;
+
+    /* 시맨틱 시그널 토큰 (dark — 다크 배경에서 시인성 보정) */
+    --signal-buy: 158 70% 48%;
+    --signal-sell: 350 89% 65%;
+    --signal-hold: 240 5% 60%;
+    --divergence-bullish: 38 95% 56%;
+    --divergence-bearish: 262 85% 66%;
+    --sentiment-fear: 350 89% 65%;
+    --sentiment-neutral: 240 5% 64%;
+    --sentiment-greed: 158 70% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 스크롤바 — 다크 톤 톡톡 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  /*
+   * Glassmorphism 카드 백드롭 (PRD §4.3 "은은한 그라디언트 백드롭 필터 블러").
+   * Card 컴포넌트의 className 에 `.glass-card` 를 합성해 사용한다.
+   */
+  .glass-card {
+    @apply relative overflow-hidden rounded-xl border border-border/70 bg-card/60
+           shadow-[0_1px_0_0_hsl(var(--border))_inset,0_24px_60px_-30px_rgba(0,0,0,0.55)]
+           backdrop-blur-xl;
+  }
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 60% at 50% -10%, hsl(var(--foreground) / 0.06), transparent 60%),
+      linear-gradient(180deg, hsl(var(--foreground) / 0.02), transparent 30%);
+  }
+
+  /* viewport-lock 메인 영역 (PRD §4.3 1화면 집중 원칙) */
+  .viewport-lock {
+    height: calc(100vh - 3.5rem); /* topbar 56px 제외 */
+    overflow: hidden;
+  }
+}

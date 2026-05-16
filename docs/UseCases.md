@@ -61,7 +61,7 @@
 **기본 흐름 (Main Flow):**
 
 ```
-1. 투자자가 Streamlit 대시보드에 접속한다.
+1. 투자자가 Semi Senti 대시보드에 접속한다. (Phase 1~4: Streamlit `localhost:8501` / Phase 5+: Next.js `localhost:3000`)
 2. 종목 선택 UI(드롭다운 또는 검색창)에서 분석할 종목을 선택한다.
    예: '삼성전자', 'SK하이닉스'
 3. 시스템은 SQLite 캐시에 해당 종목의 유효한 데이터가 있는지 확인한다.

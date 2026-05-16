@@ -151,3 +151,26 @@ python -m semi_senti admin delete  --stock-code 000660 --soft
 ```bash
 python -m unittest -v
 ```
+
+---
+
+## Phase 5 — Frontend Renewal (Next.js · Claude 스타일)
+
+기존 Streamlit 대시보드와 **병행**하여, Next.js 14 + Tailwind + Shadcn UI 기반의
+Claude 스타일 다크 대시보드를 `web/` 워크스페이스에 신설했습니다.
+
+```powershell
+cd web
+copy .env.local.example .env.local
+npm install
+npm run dev        # http://localhost:3000
+```
+
+> Node.js **20 LTS** 권장. Python 백엔드(Streamlit)와 SQLite(`db/semi_senti.sqlite`)를
+> read-only로 공유합니다. 자세한 디자인 토큰·디렉터리 설명은 [`web/README.md`](web/README.md)
+> 와 [`docs/PRD.md`](docs/PRD.md) §4.3 을 참고하세요.
+
+### 진행 상황 (T-048 ~ T-058)
+
+`docs/Tasks.md` Phase 5 섹션 참조. 현재 **T-048 스캐폴드 완료**, 다음 단계는
+Shadcn 원시 컴포넌트 설치(T-049) + AppShell 레이아웃 골격(T-050)입니다.

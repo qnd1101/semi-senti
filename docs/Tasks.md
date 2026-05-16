@@ -1,7 +1,7 @@
 # Semi Senti — Tasks.md
 
-> **마지막 업데이트:** 2026-05-16  
-> **전체 진행률:** 47 / 47 완료  
+> **마지막 업데이트:** 2026-05-17  
+> **전체 진행률:** 48 / 58 완료 (Phase 1-4 완료 · Phase 5 착수)  
 > 상태 범례: `⬜ 대기` · `🔄 진행 중` · `✅ 완료` · `🚫 차단됨` · `❌ 제외`
 
 ---
@@ -144,6 +144,49 @@
 
 ---
 
+## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 1 / 11 ]`
+
+> **목표:** 기존 Streamlit 대시보드를 Next.js 14 + Tailwind + Shadcn UI 기반의
+> Claude 스타일(Clean / Minimal / Rich Data Visual) SPA로 재구축한다.  
+> **백엔드 영향:** Python 분석 엔진(`SentimentEngine`, `SignalLogic`, `DivergenceDetector`,
+> `CycleAnalyzer`) 및 SQLite 스키마는 **그대로 유지**. 신규 `web/` 워크스페이스가
+> SQLite(`db/semi_senti.sqlite`)를 read-only 로 공유하며, 필요 시 FastAPI 어댑터를 후속 추가한다.  
+> **예상 기간:** 3주  
+> **의존성:** Phase 1~4 완료 (현재 충족).
+
+### 5-1. 스캐폴드 & 디자인 시스템
+
+| # | 상태 | 작업 | 우선순위 | 비고 |
+|---|------|------|----------|------|
+| T-048 | ✅ | `web/` 워크스페이스 신설 (Next.js 14 App Router · TS · Tailwind · Shadcn 설정) | P1 | `package.json`, `tsconfig.json`, `next.config.mjs`, `tailwind.config.ts`, `app/globals.css`(Zinc-950 다크 + 시맨틱 시그널 토큰), `components.json`, `lib/types.ts`(`DashboardSnapshot` 미러), `lib/utils.ts`(cn), placeholder `app/page.tsx` |
+| T-049 | ⬜ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) | P1 | `components/ui/*` |
+| T-050 | ⬜ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 레이아웃 골격 구현 (1화면 집중 grid) | P1 | `viewport-lock`, `glass-card` 유틸 활용 |
+
+### 5-2. 데이터 레이어 (Next.js ↔ SQLite)
+
+| # | 상태 | 작업 | 우선순위 | 비고 |
+|---|------|------|----------|------|
+| T-051 | ⬜ | `web/lib/db.ts` — `better-sqlite3` read-only 싱글톤 | P1 | 환경변수 `SEMI_SENTI_DB_PATH` |
+| T-052 | ⬜ | `web/lib/snapshot.ts` — Python `DashboardSnapshot` 동일 shape 빌더 | P1 | `classify_sentiment` 포팅 포함 |
+| T-053 | ⬜ | Route Handler `/api/stocks`, `/api/snapshot/[code]`, `/api/health` 구현 | P1 | no-store, JSON |
+| T-054 | ⬜ | `hooks/use-snapshot`, `hooks/use-stocks`, `hooks/use-auto-refresh` (SWR) | P1 | T-034 자동 갱신 매핑 (5분) |
+
+### 5-3. 대시보드 컴포넌트 (Streamlit → React 포팅)
+
+| # | 상태 | 작업 | 우선순위 | 비고 |
+|---|------|------|----------|------|
+| T-055 | ⬜ | `SentimentGauge`, `KeywordTrend`, `FinancialSummary`, `CyclePanel`, `StaleBanner`, `DivergenceBadge` | P1 | T-033/T-035/T-036/T-045/T-039 매핑 |
+| T-056 | ⬜ | `SignalChart` (lightweight-charts) — 캔들 + 펀더멘털 밴드 + BUY/SELL/Divergence 마커 + `SignalMarkerPopover`(근거) | P1 | T-028~T-032 매핑 |
+
+### 5-4. 관리자 & 마이그레이션
+
+| # | 상태 | 작업 | 우선순위 | 비고 |
+|---|------|------|----------|------|
+| T-057 | ⬜ | `/admin` 페이지 — 종목 CRUD 테이블 + 시스템 모니터 | P2 | T-046/T-047 매핑 |
+| T-058 | ⬜ | (조건부) `src/semi_senti/api/` FastAPI 어댑터 — 분석 엔진 트리거가 필요해질 때만 | P2 | Streamlit 대시보드 deprecation 결정 시점 |
+
+---
+
 ## 영구 제외 항목
 
 | # | 항목 | 사유 |
@@ -174,6 +217,15 @@ T-028~T-039 (차트 + 게이지 + 레이아웃)
 T-040~T-043 (알림)
 T-044~T-045 (사이클 분석)
 T-046~T-047 (관리자 시스템)
+                    ↓
+[Phase 5 — 프론트엔드 리뉴얼 (Next.js)]
+T-048 (스캐폴드) → T-049~T-050 (UI 셸)
+                ↓
+        T-051~T-054 (데이터 레이어)
+                ↓
+        T-055~T-056 (대시보드 컴포넌트)
+                ↓
+        T-057 (관리자) → T-058 (FastAPI, 조건부)
 ```
 
 ---
