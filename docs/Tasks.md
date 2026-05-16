@@ -1,7 +1,7 @@
 # Semi Senti — Tasks.md
 
 > **마지막 업데이트:** 2026-05-17  
-> **전체 진행률:** 54 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
+> **전체 진행률:** 56 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
 > 상태 범례: `⬜ 대기` · `🔄 진행 중` · `✅ 완료` · `🚫 차단됨` · `❌ 제외`
 
 ---
@@ -144,7 +144,7 @@
 
 ---
 
-## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 7 / 11 ]`
+## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 9 / 11 ]`
 
 > **목표:** 기존 Streamlit 대시보드를 Next.js 14 + Tailwind + Shadcn UI 기반의
 > Claude 스타일(Clean / Minimal / Rich Data Visual) SPA로 재구축한다.  
@@ -175,8 +175,8 @@
 
 | # | 상태 | 작업 | 우선순위 | 비고 |
 |---|------|------|----------|------|
-| T-055 | ⬜ | `SentimentGauge`, `KeywordTrend`, `FinancialSummary`, `CyclePanel`, `StaleBanner`, `DivergenceBadge` | P1 | T-033/T-035/T-036/T-045/T-039 매핑 |
-| T-056 | ⬜ | `SignalChart` (lightweight-charts) — 캔들 + 펀더멘털 밴드 + BUY/SELL/Divergence 마커 + `SignalMarkerPopover`(근거) | P1 | T-028~T-032 매핑 |
+| T-055 | ✅ | `SentimentGauge`, `KeywordTrend`, `FinancialSummary`, `CyclePanel`, `StaleBanner`, `DivergenceBadge` | P1 | SVG 반원 게이지, 키워드 칩(가중치 색상), 재무 그리드(밴드 포함), 진행바+라벨, 경고 배너, 다이버전스 뱃지 |
+| T-056 | ✅ | `SignalChart` (lightweight-charts) — 캔들 + 펀더멘털 밴드 + BUY/SELL/Divergence 마커 + `SignalMarkerPopover`(근거) | P1 | `addCandlestickSeries`/`addLineSeries` + `setMarkers` + Popover(클릭 시 근거 표시) |
 
 ### 5-4. 관리자 & 마이그레이션
 

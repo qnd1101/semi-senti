@@ -17,6 +17,8 @@
 - (T-049) Shadcn UI 원시 컴포넌트 11종 설치 — button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton
 - (T-050) 대시보드 레이아웃 셸 구현 — `AppShell`/`Sidebar`/`Topbar`/`DashboardShell`/`StockSelector`
 - (T-051~T-054) Next 데이터 레이어 — `sql.js` read-only 싱글톤, `snapshot` 빌더, `/api/stocks`·`/api/snapshot/[code]`·`/api/health`, SWR 훅 및 메인 페이지 실데이터 연동
+- (T-055) 대시보드 카드 6종 — `SentimentGauge`(SVG 반원), `KeywordTrend`, `FinancialSummary`, `CyclePanel`, `StaleBanner`, `DivergenceBadge`
+- (T-056) `SignalChart` (lightweight-charts v4.2 캔들+밴드+마커) + `SignalMarkerPopover` (클릭 시 시그널 근거 표시)
 
 ### Changed
 
