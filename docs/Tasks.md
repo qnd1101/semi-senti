@@ -1,7 +1,7 @@
 # Semi Senti — Tasks.md
 
 > **마지막 업데이트:** 2026-05-17  
-> **전체 진행률:** 50 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
+> **전체 진행률:** 54 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
 > 상태 범례: `⬜ 대기` · `🔄 진행 중` · `✅ 완료` · `🚫 차단됨` · `❌ 제외`
 
 ---
@@ -144,7 +144,7 @@
 
 ---
 
-## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 3 / 11 ]`
+## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 7 / 11 ]`
 
 > **목표:** 기존 Streamlit 대시보드를 Next.js 14 + Tailwind + Shadcn UI 기반의
 > Claude 스타일(Clean / Minimal / Rich Data Visual) SPA로 재구축한다.  
@@ -166,10 +166,10 @@
 
 | # | 상태 | 작업 | 우선순위 | 비고 |
 |---|------|------|----------|------|
-| T-051 | ⬜ | `web/lib/db.ts` — `sql.js` (WASM) read-only 싱글톤 | P1 | 환경변수 `SEMI_SENTI_DB_PATH`, 네이티브 빌드 불필요 |
-| T-052 | ⬜ | `web/lib/snapshot.ts` — Python `DashboardSnapshot` 동일 shape 빌더 | P1 | `classify_sentiment` 포팅 포함 |
-| T-053 | ⬜ | Route Handler `/api/stocks`, `/api/snapshot/[code]`, `/api/health` 구현 | P1 | no-store, JSON |
-| T-054 | ⬜ | `hooks/use-snapshot`, `hooks/use-stocks`, `hooks/use-auto-refresh` (SWR) | P1 | T-034 자동 갱신 매핑 (5분) |
+| T-051 | ✅ | `web/lib/db.ts` — `sql.js` (WASM) read-only 싱글톤 | P1 | 환경변수 `SEMI_SENTI_DB_PATH`, `@types/sql.js` |
+| T-052 | ✅ | `web/lib/snapshot.ts` — Python `DashboardSnapshot` 동일 shape 빌더 | P1 | `classify-sentiment.ts` 분리, 다이버전스는 엔진 미연동 시 `[]`, 밴드는 최근 시그널 행 폴백 |
+| T-053 | ✅ | Route Handler `/api/stocks`, `/api/snapshot/[code]`, `/api/health` 구현 | P1 | `Cache-Control: no-store`, JSON |
+| T-054 | ✅ | `hooks/use-snapshot`, `hooks/use-stocks`, `hooks/use-auto-refresh` (SWR) | P1 | `?code=` · 사이드바 폴링 분 단위 연동 |
 
 ### 5-3. 대시보드 컴포넌트 (Streamlit → React 포팅)
 
@@ -221,7 +221,7 @@ T-046~T-047 (관리자 시스템)
 [Phase 5 — 프론트엔드 리뉴얼 (Next.js)]
 T-048 (스캐폴드) → T-049~T-050 (UI 셸)
                 ↓
-        T-051~T-054 (데이터 레이어)
+        T-051~T-054 (데이터 레이어) ✅
                 ↓
         T-055~T-056 (대시보드 컴포넌트)
                 ↓

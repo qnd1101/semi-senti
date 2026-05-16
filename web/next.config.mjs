@@ -2,12 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ["better-sqlite3"],
-  },
-  webpack: (config) => {
-    config.externals = config.externals || [];
-    config.externals.push({ "better-sqlite3": "commonjs better-sqlite3" });
-    return config;
+    // sql.js: WASM 기반 SQLite (네이티브 바인딩 없음, T-051)
+    serverComponentsExternalPackages: ["sql.js"],
   },
 };
 

@@ -11,8 +11,8 @@
 - 프로젝트: **Semi Senti** — 반도체 특화 NLP 감성 + 펀더멘털 매매 시그널 서비스.
 - Phase 1~4 (Python 백엔드 · Streamlit 대시보드) **100% 완료**.
 - Phase 5 = 프론트엔드 리뉴얼: Streamlit → **Next.js 14 + Tailwind + Shadcn UI + Lucide React** (Claude 스타일 다크).
-- 현 위치: **T-049 / T-050 ✅ 완료** (2026-05-17 03:45).
-- 다음 작업: **T-051 (sql.js DB 싱글톤) → T-052 (snapshot.ts 빌더 포팅) → T-053/T-054 (Route Handler + SWR hooks)**.
+- 현 위치: **T-051 ~ T-054 ✅ 완료** (데이터 레이어 + API + SWR).
+- 다음 작업: **T-055 (소형 대시보드 카드들) → T-056 (`SignalChart` + 마커 Popover)**.
 
 ---
 
@@ -218,25 +218,25 @@ SQLite (db/semi_senti.sqlite)
 
 ## 6. 진행 현황 (Tasks 매핑)
 
-`docs/Tasks.md` Phase 5 섹션 — 진행률 `3 / 11`.
+`docs/Tasks.md` Phase 5 섹션 — 진행률 `7 / 11`.
 
 | ID | 상태 | 작업 |
 |---|---|---|
 | **T-048** | ✅ | `web/` 워크스페이스 신설 (스캐폴드 + 디자인 토큰) |
 | **T-049** | ✅ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) |
 | **T-050** | ✅ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 골격 (1화면 집중) + `StockSelector` |
-| T-051 | ⬜ | `web/lib/db.ts` (better-sqlite3 read-only 싱글톤) |
-| T-052 | ⬜ | `web/lib/snapshot.ts` (Python DashboardSnapshot 빌더 포팅) |
-| T-053 | ⬜ | Route Handler `/api/stocks` · `/api/snapshot/[code]` · `/api/health` |
-| T-054 | ⬜ | `hooks/use-snapshot` · `use-stocks` · `use-auto-refresh` (SWR, 5분) |
+| **T-051** | ✅ | `web/lib/db.ts` (`sql.js` WASM read-only 싱글톤) |
+| **T-052** | ✅ | `web/lib/snapshot.ts` (DashboardSnapshot 빌더; 다이버전스·실시간 밴드는 Python 엔진과 100% 동일하지 않음 — 비고) |
+| **T-053** | ✅ | Route Handler `/api/stocks` · `/api/snapshot/[code]` · `/api/health` |
+| **T-054** | ✅ | `hooks/use-snapshot` · `use-stocks` · `use-auto-refresh` (SWR) |
 | T-055 | ⬜ | `SentimentGauge` / `KeywordTrend` / `FinancialSummary` / `CyclePanel` / `StaleBanner` / `DivergenceBadge` |
 | T-056 | ⬜ | `SignalChart` (lightweight-charts) + `SignalMarkerPopover` |
 | T-057 | ⬜ | `/admin` 페이지 — 종목 CRUD + 시스템 모니터 |
 | T-058 | ⬜ | (조건부) `src/semi_senti/api/` FastAPI 어댑터 — 분석 엔진 트리거가 필요해질 때만 |
 
 ### 권장 진행 순서 (작업 효율 우선)
-1. **F-2 = T-049 + T-050** (UI 셸 + Shadcn) — 가장 먼저, mock 데이터로 viewport-lock 검증
-2. **F-3 = T-051 ~ T-054** (데이터 레이어) — UI 골격에 실데이터 주입
+1. **F-2 = T-049 + T-050** (UI 셸 + Shadcn) — ✅
+2. **F-3 = T-051 ~ T-054** (데이터 레이어) — ✅
 3. **F-4 = T-055** (작은 카드들) — 차트 전 빠른 시각 검증
 4. **F-5 = T-056** (SignalChart) — 가장 비싼 컴포넌트 마지막
 5. **F-6 = T-057** (관리자)

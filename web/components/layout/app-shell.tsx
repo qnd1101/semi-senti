@@ -15,6 +15,10 @@ interface AppShellProps {
   baseDate?: string | null;
   stale?: StaleStatus;
   sidebarContent?: React.ReactNode;
+  sidebarAutoRefreshEnabled?: boolean;
+  onSidebarAutoRefreshChange?: (enabled: boolean) => void;
+  sidebarPollMinutes?: number;
+  onSidebarPollMinutesChange?: (minutes: number) => void;
   className?: string;
 }
 
@@ -40,12 +44,23 @@ export function AppShell({
   baseDate,
   stale,
   sidebarContent,
+  sidebarAutoRefreshEnabled,
+  onSidebarAutoRefreshChange,
+  sidebarPollMinutes,
+  onSidebarPollMinutesChange,
   className,
 }: AppShellProps) {
   return (
     <div className={cn("flex h-screen overflow-hidden bg-background", className)}>
       {/* Sidebar */}
-      <Sidebar>{sidebarContent}</Sidebar>
+      <Sidebar
+        autoRefreshEnabled={sidebarAutoRefreshEnabled}
+        onAutoRefreshChange={onSidebarAutoRefreshChange}
+        pollMinutes={sidebarPollMinutes}
+        onPollMinutesChange={onSidebarPollMinutesChange}
+      >
+        {sidebarContent}
+      </Sidebar>
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">

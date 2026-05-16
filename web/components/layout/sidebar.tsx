@@ -17,6 +17,11 @@ import {
 interface SidebarProps {
   className?: string;
   children?: React.ReactNode;
+  /** 제어 컴포넌트: 부모(SWR 폴링)와 자동 갱신 스위치 동기화 */
+  autoRefreshEnabled?: boolean;
+  onAutoRefreshChange?: (enabled: boolean) => void;
+  pollMinutes?: number;
+  onPollMinutesChange?: (minutes: number) => void;
 }
 
 const MESSAGES = {
@@ -27,9 +32,32 @@ const MESSAGES = {
   minutes: "분",
 } as const;
 
-export function Sidebar({ className, children }: SidebarProps) {
-  const [autoRefresh, setAutoRefresh] = React.useState(true);
-  const [refreshInterval, setRefreshInterval] = React.useState([5]);
+export function Sidebar({
+  className,
+  children,
+  autoRefreshEnabled: controlledEnabled,
+  onAutoRefreshChange,
+  pollMinutes: controlledMinutes,
+  onPollMinutesChange,
+}: SidebarProps) {
+  const [uncontrolledRefresh, setUncontrolledRefresh] = React.useState(true);
+  const [uncontrolledMinutes, setUncontrolledMinutes] = React.useState([5]);
+
+  const autoRefresh =
+    controlledEnabled ?? uncontrolledRefresh;
+  const setAutoRefresh = onAutoRefreshChange ?? setUncontrolledRefresh;
+
+  const refreshInterval =
+    controlledMinutes != null
+      ? [controlledMinutes]
+      : uncontrolledMinutes;
+  const setRefreshInterval = (v: number[]) => {
+    if (onPollMinutesChange && v[0] != null) {
+      onPollMinutesChange(v[0]);
+    } else {
+      setUncontrolledMinutes(v);
+    }
+  };
 
   return (
     <TooltipProvider delayDuration={300}>
