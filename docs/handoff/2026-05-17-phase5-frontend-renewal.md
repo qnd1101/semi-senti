@@ -11,8 +11,8 @@
 - 프로젝트: **Semi Senti** — 반도체 특화 NLP 감성 + 펀더멘털 매매 시그널 서비스.
 - Phase 1~4 (Python 백엔드 · Streamlit 대시보드) **100% 완료**.
 - Phase 5 = 프론트엔드 리뉴얼: Streamlit → **Next.js 14 + Tailwind + Shadcn UI + Lucide React** (Claude 스타일 다크).
-- 현 위치: **T-048 (스캐폴드) ✅ 완료, 커밋 `c8106ad` push 완료** (2026-05-17 02:46).
-- 다음 작업: **T-049 (Shadcn 원시 컴포넌트 설치) → T-050 (AppShell/Sidebar/Topbar/DashboardShell)**.
+- 현 위치: **T-049 / T-050 ✅ 완료** (2026-05-17 03:45).
+- 다음 작업: **T-051 (sql.js DB 싱글톤) → T-052 (snapshot.ts 빌더 포팅) → T-053/T-054 (Route Handler + SWR hooks)**.
 
 ---
 
@@ -218,13 +218,13 @@ SQLite (db/semi_senti.sqlite)
 
 ## 6. 진행 현황 (Tasks 매핑)
 
-`docs/Tasks.md` Phase 5 섹션 — 진행률 `1 / 11`.
+`docs/Tasks.md` Phase 5 섹션 — 진행률 `3 / 11`.
 
 | ID | 상태 | 작업 |
 |---|---|---|
 | **T-048** | ✅ | `web/` 워크스페이스 신설 (스캐폴드 + 디자인 토큰) |
-| T-049 | ⬜ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) |
-| T-050 | ⬜ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 골격 (1화면 집중) |
+| **T-049** | ✅ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) |
+| **T-050** | ✅ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 골격 (1화면 집중) + `StockSelector` |
 | T-051 | ⬜ | `web/lib/db.ts` (better-sqlite3 read-only 싱글톤) |
 | T-052 | ⬜ | `web/lib/snapshot.ts` (Python DashboardSnapshot 빌더 포팅) |
 | T-053 | ⬜ | Route Handler `/api/stocks` · `/api/snapshot/[code]` · `/api/health` |

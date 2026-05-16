@@ -14,10 +14,13 @@
 
 - Cursor 규칙: Git 필수 커밋·푸시(`version-control-mandatory.mdc`) 및 릴리즈 노트 작성 워크플로(`dev-workflow` §4)
 - `docs/RELEASE_NOTES.md` 변경 이력 템플릿
+- (T-049) Shadcn UI 원시 컴포넌트 11종 설치 — button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton
+- (T-050) 대시보드 레이아웃 셸 구현 — `AppShell`/`Sidebar`/`Topbar`/`DashboardShell`/`StockSelector`
 
 ### Changed
 
 - `better-sqlite3` → `sql.js` (WASM 기반) 교체: Windows/Node 24 환경에서 네이티브 빌드 문제 해결
+- `app/page.tsx` placeholder → `DashboardShell` 호출 구조로 변경 (mock 데이터 기반 UI 검증)
 
 ### Fixed
 

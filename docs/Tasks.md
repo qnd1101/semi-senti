@@ -1,7 +1,7 @@
 # Semi Senti — Tasks.md
 
 > **마지막 업데이트:** 2026-05-17  
-> **전체 진행률:** 48 / 58 완료 (Phase 1-4 완료 · Phase 5 착수)  
+> **전체 진행률:** 50 / 58 완료 (Phase 1-4 완료 · Phase 5 진행 중)  
 > 상태 범례: `⬜ 대기` · `🔄 진행 중` · `✅ 완료` · `🚫 차단됨` · `❌ 제외`
 
 ---
@@ -144,7 +144,7 @@
 
 ---
 
-## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 1 / 11 ]`
+## Phase 5 — 프론트엔드 리뉴얼 (Claude 스타일 Next.js 전환) `[ 3 / 11 ]`
 
 > **목표:** 기존 Streamlit 대시보드를 Next.js 14 + Tailwind + Shadcn UI 기반의
 > Claude 스타일(Clean / Minimal / Rich Data Visual) SPA로 재구축한다.  
@@ -159,8 +159,8 @@
 | # | 상태 | 작업 | 우선순위 | 비고 |
 |---|------|------|----------|------|
 | T-048 | ✅ | `web/` 워크스페이스 신설 (Next.js 14 App Router · TS · Tailwind · Shadcn 설정) | P1 | `package.json`, `tsconfig.json`, `next.config.mjs`, `tailwind.config.ts`, `app/globals.css`(Zinc-950 다크 + 시맨틱 시그널 토큰), `components.json`, `lib/types.ts`(`DashboardSnapshot` 미러), `lib/utils.ts`(cn), placeholder `app/page.tsx` |
-| T-049 | ⬜ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) | P1 | `components/ui/*` |
-| T-050 | ⬜ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 레이아웃 골격 구현 (1화면 집중 grid) | P1 | `viewport-lock`, `glass-card` 유틸 활용 |
+| T-049 | ✅ | Shadcn UI 원시 컴포넌트 설치 (button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton) | P1 | `components/ui/*` — Radix UI 기반 직접 구현, 시맨틱 토큰(buy/sell/hold/bullish/bearish) 추가 |
+| T-050 | ✅ | `AppShell` / `Sidebar` / `Topbar` / `DashboardShell` 레이아웃 골격 구현 (1화면 집중 grid) | P1 | `viewport-lock`, `glass-card` 유틸 활용, mock 데이터로 구조 검증 완료, `StockSelector` 포함 |
 
 ### 5-2. 데이터 레이어 (Next.js ↔ SQLite)
 

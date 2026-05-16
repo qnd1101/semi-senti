@@ -107,6 +107,11 @@ db/*.sqlite-journal
 docs/**/*.pdf
 docs/*.pdf
 
+# ----- Private notes (not tracked) -------------------------------------------
+docs/TODO-private.md
+*-private.md
+notes/
+
 # ----- Logs & local caches ---------------------------------------------------
 *.log
 logs/

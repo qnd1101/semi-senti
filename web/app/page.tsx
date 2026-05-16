@@ -1,59 +1,113 @@
+"use client";
+
+import * as React from "react";
+import { AppShell } from "@/components/layout";
+import { DashboardShell, StockSelector } from "@/components/dashboard";
+import type { DashboardSnapshot, Stock, StaleStatus } from "@/lib/types";
+
 /**
- * Semi Senti — 메인 대시보드 (placeholder).
+ * Semi Senti — 메인 대시보드 페이지.
  *
- * 이 페이지는 1단계 스캐폴드의 동작 확인용이며,
- * 다음 단계에서 다음 컴포넌트로 교체된다:
- *   <AppShell>
- *     <Sidebar/> <Topbar/>
- *     <DashboardShell snapshot={snapshot}/>
- *   </AppShell>
+ * Phase 5 T-050: AppShell + DashboardShell 골격 구현.
  *
- * 색상 토큰/레이아웃 토큰의 시각 확인만을 목적으로 한다.
+ * 현재는 mock 데이터로 UI 구조를 검증하며,
+ * T-053/T-054에서 실제 API + SWR hook으로 교체 예정.
  */
+
+const MOCK_STOCKS: Stock[] = [
+  { stock_code: "005930", name: "삼성전자", market: "KOSPI", is_active: true },
+  { stock_code: "000660", name: "SK하이닉스", market: "KOSPI", is_active: true },
+  { stock_code: "042700", name: "한미반도체", market: "KOSDAQ", is_active: true },
+];
+
+const MOCK_STALE: StaleStatus = {
+  is_stale: false,
+  last_updated: "2026-05-17T03:00:00+09:00",
+  hours_old: 0.5,
+  message: "데이터가 최신 상태입니다",
+};
+
+const MOCK_SNAPSHOT: DashboardSnapshot = {
+  stock_code: "005930",
+  stock_name: "삼성전자",
+  candles: [],
+  signals: [
+    {
+      time: "2026-05-16T09:00:00+09:00",
+      kind: "HOLD",
+      price: 72000,
+      reason: "현재가가 밴드 내 위치 · 감성 중립",
+      sentiment_score: 15,
+    },
+  ],
+  divergences: [],
+  sentiment: {
+    score: 15,
+    bucket: "NEUTRAL",
+    bucket_label_ko: "중립",
+    history: [],
+    top_keywords: [
+      { keyword: "HBM", weight: 2.5, count: 42 },
+      { keyword: "파운드리", weight: 1.8, count: 28 },
+      { keyword: "수율", weight: 1.5, count: 15 },
+      { keyword: "재고", weight: -1.2, count: 12 },
+      { keyword: "수요", weight: 1.0, count: 10 },
+    ],
+    updated_at: "2026-05-17T03:00:00+09:00",
+  },
+  financial: {
+    current_price: 72000,
+    currency: "KRW",
+    record_date: "2026-05-16",
+    revenue: 74500000000000,
+    operating_income: 6400000000000,
+    per: 12.5,
+    pbr: 1.1,
+    eps: 5760,
+  },
+  band: {
+    band_high: 85000,
+    band_low: 62000,
+    method: "PER/PBR 기반",
+  },
+  cycle: {
+    score: 65,
+    label: "회복기",
+    inventory_turnover: 5.2,
+    yoy_revenue: 15.3,
+    updated_at: "2026-05-17T03:00:00+09:00",
+  },
+  stale: MOCK_STALE,
+  generated_at: "2026-05-17T03:00:00+09:00",
+};
+
 export default function HomePage() {
-  return (
-    <main className="viewport-lock">
-      <div className="container flex h-full flex-col justify-center gap-8 py-12">
-        <header className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Semi Senti · Frontend Renewal · Phase 0
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            반도체 감성 + 펀더멘털 시그널 대시보드
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            본 화면은 Next.js · Tailwind · Shadcn UI 기반 리뉴얼의 초기 스캐폴드입니다.
-            다음 단계에서 차트·게이지·재무 카드가 채워집니다.
-          </p>
-        </header>
+  const [selectedCode, setSelectedCode] = React.useState<string>("005930");
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ThemeSwatch label="BUY / Greed" tone="bg-signal-buy" />
-          <ThemeSwatch label="SELL / Fear" tone="bg-signal-sell" />
-          <ThemeSwatch label="HOLD / Neutral" tone="bg-signal-hold" />
-          <ThemeSwatch
-            label="Divergence · Bullish"
-            tone="bg-divergence-bullish"
-          />
-          <ThemeSwatch
-            label="Divergence · Bearish"
-            tone="bg-divergence-bearish"
-          />
-          <ThemeSwatch label="Card surface" tone="bg-card border border-border" />
-        </section>
-      </div>
-    </main>
+  const selectedStock = React.useMemo(
+    () => MOCK_STOCKS.find((s) => s.stock_code === selectedCode),
+    [selectedCode]
   );
-}
 
-function ThemeSwatch({ label, tone }: { label: string; tone: string }) {
+  const snapshot = selectedCode ? MOCK_SNAPSHOT : null;
+
   return (
-    <div className="glass-card p-5">
-      <div className={`h-12 w-full rounded-md ${tone}`} aria-hidden />
-      <div className="mt-3 flex items-center justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">token</span>
-      </div>
-    </div>
+    <AppShell
+      stockName={selectedStock?.name}
+      stockCode={selectedCode}
+      currentPrice={snapshot?.financial.current_price}
+      currency={snapshot?.financial.currency}
+      baseDate={snapshot?.financial.record_date}
+      stale={snapshot?.stale}
+      sidebarContent={
+        <StockSelector
+          stocks={MOCK_STOCKS}
+          value={selectedCode}
+          onValueChange={setSelectedCode}
+        />
+      }
+    >
+      <DashboardShell snapshot={snapshot} />
+    </AppShell>
   );
 }
