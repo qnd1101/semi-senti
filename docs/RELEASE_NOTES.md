@@ -24,11 +24,14 @@
 
 ### Changed
 
+- `README.md` 전면 개편 — Phase 5 완료 기준 아키텍처·Next.js/FastAPI/CLI·DB 경로 통일·기본 종목(DART corp_code) 안내
 - `better-sqlite3` → `sql.js` (WASM 기반) 교체: Windows/Node 24 환경에서 네이티브 빌드 문제 해결
 - `app/page.tsx` — SQLite API + SWR로 실데이터 연동 (`?code=` 종목 선택)
 - `next.config.mjs` — `better-sqlite3` 제거, `sql.js`를 서버 번들에 맞게 정리
 
 ### Fixed
+
+- DART 재무 적재 시 `financials` UPSERT 가 주가(OHLCV) 컬럼을 `NULL`로 덮어쓰던 문제 수정 — 재무 필드만 갱신
 
 ### Deprecated
 

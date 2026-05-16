@@ -221,10 +221,20 @@ class DartFinancialCollector(BaseCollector):
             stock_code=stock_code, record_date=record_date, raw=raw, currency="KRW"
         )
         self.ensure_stock(stock_code=stock_code, name=stock_name)
+        # 주가 컬럼은 price 수집기가 담당 → 재무 필드만 갱신해 기존 OHLCV 를 보존한다.
         self.db().upsert(
             "financials",
             record,
             conflict_columns=["stock_code", "record_date"],
+            update_columns=[
+                "revenue",
+                "operating_profit",
+                "per",
+                "pbr",
+                "eps",
+                "currency",
+                "updated_at",
+            ],
         )
         _LOGGER.info(
             "DART 적재 완료: stock=%s, date=%s, revenue=%s, op=%s, PER=%s",
