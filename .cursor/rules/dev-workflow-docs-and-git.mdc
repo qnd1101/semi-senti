@@ -26,6 +26,7 @@ alwaysApply: true
 - [ ] 이 커밋에 **서로 다른 Task·기능이 섞이지 않았는가**
 - [ ] `git diff`에 `.env`·비밀키·`.venv`가 **없는가**
 - [ ] 관련 문서(PRD·UseCases·Tasks·README)를 **이번 변경분만** 반영했는가
+- [ ] `docs/RELEASE_NOTES.md`에 **이번 변경분**을 Added/Changed/Fixed 등으로 기록했는가
 
 ### 아직 커밋하지 않음 (WIP 유지)
 
@@ -61,12 +62,15 @@ alwaysApply: true
 | 유스케이스 | `docs/UseCases.md` | 시나리오·입출력·예외 흐름 변경 |
 | 설계·진행 | `docs/Tasks.md` | Task 상태·비고·`마지막 업데이트`·진행률 |
 | README | `README.md` | 실행 방법·CLI·환경 변수·구조 요약 변경 |
+| 릴리즈 노트 | `docs/RELEASE_NOTES.md` | 사용자 대상 변경 이력 (아래 §4) |
 
-- **Markdown 4종 = SSOT** (PDF 원본 없어도 이 파일들을 기준으로 맞춘다).
+- **Markdown 5종 + 릴리즈 노트 = SSOT** (PDF 원본 없어도 이 파일들을 기준으로 맞춘다).
 
 ---
 
-## 2. Git 커밋·푸시 (문서 갱신 직후, 사용자 추가 요청 없이)
+## 2. Git 커밋·푸시 (문서 갱신 직후)
+
+> **에이전트:** `version-control-mandatory.mdc` — 완료 조건이면 사용자 재요청 없이 커밋·push 필수.
 
 1. `git status` / `git diff` 확인
 2. 제외: `.env`, credentials, `.venv/`, `__pycache__/`, 대용량 바이너리
@@ -78,6 +82,23 @@ alwaysApply: true
 
 ---
 
+## 4. 릴리즈 노트 (`docs/RELEASE_NOTES.md`)
+
+**언제:** 「반드시 커밋」 조건(#1~6)과 동일 — Task·기능·버그 수정·문서·코드 세트 완료 시 **커밋 직전**.
+
+**어떻게:**
+
+1. 상단 `## [Unreleased]` 아래 해당 카테고리에 **한 줄 요약** bullet 추가 (한국어, 사용자 관점).
+2. Task ID·기능 ID가 있으면 `(T-048)` 형태로 표기.
+3. 배포·태그 단위로 묶을 때: `[Unreleased]` 내용을 `## [x.y.z] - YYYY-MM-DD]`로 올리고 `[Unreleased]` 섹션을 비움.
+4. 프론트 주요 릴리즈 시 `web/package.json`의 `version`을 맞춘다.
+
+**카테고리:** `Added` · `Changed` · `Fixed` · `Deprecated` · `Security` (내부 리팩터만·동작 동일 → 릴리즈 노트 생략 가능, Tasks 비고에만 남김).
+
+**커밋:** 릴리즈 노트 갱신은 **해당 기능 커밋에 포함** (단독 커밋 불필요).
+
+---
+
 ## 3. 작업 완료 보고
 
-- 코드 요약 · 갱신 문서 목록 · **커밋한 상황(#1~6 중 해당)** · 커밋 메시지·push 여부
+- 코드 요약 · 갱신 문서 목록 · **릴리즈 노트에 추가한 항목 요약** · **커밋한 상황(#1~6 중 해당)** · 커밋 메시지·push 여부
