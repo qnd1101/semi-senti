@@ -12,6 +12,22 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+### Deprecated
+
+### Security
+
+---
+
+## [0.2.0] - 2026-05-17
+
+### Added
+
 - Cursor 규칙: Git 필수 커밋·푸시(`version-control-mandatory.mdc`) 및 릴리즈 노트 작성 워크플로(`dev-workflow` §4)
 - `docs/RELEASE_NOTES.md` 변경 이력 템플릿
 - (T-049) Shadcn UI 원시 컴포넌트 11종 설치 — button/card/select/tabs/popover/tooltip/dialog/switch/slider/badge/skeleton
@@ -40,10 +56,6 @@
 ### Removed
 
 - `setup.bat`, `setup.sh` 제거 — `run_windows.bat`, `run_linux.sh`로 대체됨에 따라 구형 스크립트 삭제
-
-### Deprecated
-
-### Security
 
 ---
 
