@@ -12,7 +12,7 @@ REM   6. Next.js 개발 서버 시작 (http://localhost:3000)
 REM   7. 브라우저 자동 오픈
 REM
 REM 요구사항:
-REM   - Python 3.8+
+REM   - Python 3.12 (필수)
 REM   - JDK 1.8+
 REM   - Node.js 20 LTS
 REM   - npm 9+
@@ -32,15 +32,17 @@ REM ----------------------------------------------------------------------------
 
 echo [1/7] Checking environment...
 
-REM Python 확인
-python --version >nul 2>&1
+REM Python 3.12 확인
+py -3.12 --version >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH.
-    echo Please download Python 3.8+ from https://www.python.org/
+    echo [ERROR] Python 3.12 is not installed or not in PATH.
+    echo Please download Python 3.12 from https://www.python.org/downloads/
+    echo.
+    echo If Python 3.12 is installed, make sure it's accessible via 'py -3.12' command.
     pause
     exit /b 1
 )
-for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYTHON_VERSION=%%v
+for /f "tokens=2" %%v in ('py -3.12 --version 2^>^&1') do set PYTHON_VERSION=%%v
 echo [OK] Python %PYTHON_VERSION% found.
 
 REM Node.js 확인
@@ -91,14 +93,14 @@ REM ----------------------------------------------------------------------------
 echo [2/7] Setting up Python virtual environment...
 
 if not exist ".venv\" (
-    echo Creating new virtual environment...
-    python -m venv .venv
+    echo Creating new virtual environment with Python 3.12...
+    py -3.12 -m venv .venv
     if errorlevel 1 (
-        echo [ERROR] Failed to create virtual environment.
+        echo [ERROR] Failed to create virtual environment with Python 3.12.
         pause
         exit /b 1
     )
-    echo [OK] Virtual environment created.
+    echo [OK] Virtual environment created with Python 3.12.
 ) else (
     echo [OK] Virtual environment already exists.
 )
@@ -128,7 +130,7 @@ if not exist "requirements.txt" (
     exit /b 1
 )
 
-REM pip 업그레이드
+REM pip 업그레이드 (가상환경 내 python 사용)
 python -m pip install --upgrade pip --quiet
 
 REM 의존성 설치

@@ -28,6 +28,7 @@
 
 - `README.md` 한국어 전면 재작성 — Quick Start(사용자 대상 1-click 실행 가이드), Development Setup(개발자 대상 수동 설치), Configuration(환경 변수 표), Troubleshooting(자주 발생하는 오류 6종), 디렉토리 구조, 기능 개요, 사용 시나리오, Scripts Reference 섹션 구조화
 - `README.md` 전면 개편 — Phase 5 완료 기준 아키텍처·Next.js/FastAPI/CLI·DB 경로 통일·기본 종목(DART corp_code) 안내
+- Python 3.12 버전 고정 — `run_windows.bat` 및 `run_linux.sh` 가상환경 생성 시 Python 3.12 명시적 사용, README.md 요구사항 업데이트
 - `better-sqlite3` → `sql.js` (WASM 기반) 교체: Windows/Node 24 환경에서 네이티브 빌드 문제 해결
 - `app/page.tsx` — SQLite API + SWR로 실데이터 연동 (`?code=` 종목 선택)
 - `next.config.mjs` — `better-sqlite3` 제거, `sql.js`를 서버 번들에 맞게 정리

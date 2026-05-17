@@ -13,7 +13,7 @@
 #   8. 브라우저 자동 오픈
 #
 # 요구사항:
-#   - Python 3.8+
+#   - Python 3.12 (필수)
 #   - JDK 1.8+
 #   - Node.js 20 LTS
 #   - npm 9+
@@ -92,13 +92,18 @@ echo ""
 
 log_info "[1/7] Checking environment..."
 
-# Python 확인
-if ! command -v python3 &> /dev/null; then
-    log_error "Python 3 is not installed or not in PATH."
-    log_info "Install Python 3.8+ from: https://www.python.org/"
+# Python 3.12 확인
+if ! command -v python3.12 &> /dev/null; then
+    log_error "Python 3.12 is not installed or not in PATH."
+    log_info "Install Python 3.12 from: https://www.python.org/downloads/"
+    log_info ""
+    log_info "On Ubuntu/Debian:"
+    log_info "  sudo apt update && sudo apt install python3.12 python3.12-venv"
+    log_info "On macOS (with Homebrew):"
+    log_info "  brew install python@3.12"
     exit 1
 fi
-PYTHON_VERSION=$(python3 --version | awk '{print $2}')
+PYTHON_VERSION=$(python3.12 --version | awk '{print $2}')
 log_success "Python $PYTHON_VERSION found."
 
 # Node.js 확인
@@ -143,9 +148,9 @@ echo ""
 log_info "[2/7] Setting up Python virtual environment..."
 
 if [[ ! -d ".venv" ]]; then
-    log_info "Creating new virtual environment..."
-    python3 -m venv .venv
-    log_success "Virtual environment created."
+    log_info "Creating new virtual environment with Python 3.12..."
+    python3.12 -m venv .venv
+    log_success "Virtual environment created with Python 3.12."
 else
     log_success "Virtual environment already exists."
 fi
@@ -171,8 +176,8 @@ if [[ ! -f "requirements.txt" ]]; then
     exit 1
 fi
 
-# pip 업그레이드
-python3 -m pip install --upgrade pip --quiet
+# pip 업그레이드 (가상환경 내 python 사용)
+python -m pip install --upgrade pip --quiet
 
 # 의존성 설치
 pip install -r requirements.txt --quiet

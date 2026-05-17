@@ -4,7 +4,7 @@
 
 **반도체 특화 주가 감성 분석 서비스**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -51,7 +51,7 @@ chmod +x run_linux.sh
 
 | 항목 | 버전 | 확인 명령 | 설치 링크 |
 |------|------|-----------|----------|
-| **Python** | 3.8 이상 | `python --version` | [python.org](https://www.python.org/) |
+| **Python** | 3.12 (필수) | `py -3.12 --version` | [python.org](https://www.python.org/) |
 | **JDK** | 1.8 이상 | `java -version` | [OpenJDK](https://adoptium.net/) |
 | **Node.js** | 20 LTS | `node --version` | [nodejs.org](https://nodejs.org/) |
 | **npm** | 9 이상 | `npm --version` | Node.js 포함 |
@@ -78,8 +78,11 @@ cd semi-senti
 #### 2. Python 백엔드 설정
 
 ```bash
-# 가상환경 생성
-python -m venv .venv
+# 가상환경 생성 (Python 3.12 필수)
+# Windows:
+py -3.12 -m venv .venv
+# Linux/macOS:
+python3.12 -m venv .venv
 
 # 가상환경 활성화
 # Windows:
