@@ -51,6 +51,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete existing DB file before initialization (DEV ONLY)",
     )
 
+    bootstrap_parser = subparsers.add_parser(
+        "bootstrap",
+        help="DB 시딩 + 기본 종목 등록 + 수집·분석 일괄 실행",
+    )
+    bootstrap_parser.add_argument(
+        "--stocks",
+        default=None,
+        help="처리할 종목코드(쉼표 구분). 기본: 삼성전자·SK하이닉스",
+    )
+    bootstrap_parser.add_argument(
+        "--skip-db-seed",
+        action="store_true",
+        help="db_seed.py(더미 재무) 생략, 스키마만 보장",
+    )
+    bootstrap_parser.add_argument(
+        "--skip-collect",
+        action="store_true",
+        help="외부 API 수집 생략 (DB 종목 등록만)",
+    )
+    bootstrap_parser.add_argument(
+        "--skip-analyze",
+        action="store_true",
+        help="분석 엔진 실행 생략",
+    )
+    bootstrap_parser.add_argument(
+        "--no-force",
+        action="store_true",
+        help="수집 시 TTL 캐시 존중 (기본은 force=True)",
+    )
+
     # ---- collect 서브커맨드 ------------------------------------------------
     collect_parser = subparsers.add_parser(
         "collect",
@@ -188,6 +218,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _cmd_bootstrap(args: argparse.Namespace) -> int:
+    from .bootstrap import print_bootstrap_report, run_bootstrap
+
+    codes = None
+    if args.stocks:
+        codes = [c.strip() for c in args.stocks.split(",") if c.strip()]
+
+    report = run_bootstrap(
+        stock_codes=codes,
+        skip_db_seed=args.skip_db_seed,
+        skip_collect=args.skip_collect,
+        skip_analyze=args.skip_analyze,
+        force=not args.no_force,
+    )
+    print_bootstrap_report(report)
+    if report.skipped:
+        return 2
+    return 0 if report.ok else 1
+
+
 def _cmd_init_db(args: argparse.Namespace) -> int:
     from pathlib import Path
 
@@ -241,13 +291,20 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             return 0
 
         if args.source == "dart":
-            if not args.corp_code:
-                print("[ERROR] dart source 는 --corp-code 가 필수입니다.", file=sys.stderr)
-                return 2
+            corp_code = args.corp_code
+            if not corp_code:
+                from .collector.dart_corp import resolve_corp_code
+
+                try:
+                    corp_code = resolve_corp_code(args.stock_code)
+                    print(f"[INFO] DART corp_code 자동 조회: {corp_code}")
+                except CollectorError as exc:
+                    print(f"[ERROR] {exc}", file=sys.stderr)
+                    return 2
             with DartFinancialCollector() as dc:
                 record = dc.collect_and_store(
                     stock_code=args.stock_code,
-                    corp_code=args.corp_code,
+                    corp_code=corp_code,
                     bsns_year=args.bsns_year,
                     stock_name=args.stock_name,
                 )
@@ -577,6 +634,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(__version__)
         return 0
 
+    if args.command == "bootstrap":
+        return _cmd_bootstrap(args)
     if args.command == "init-db":
         return _cmd_init_db(args)
     if args.command == "collect":
@@ -592,7 +651,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print(
         "semi_senti CLI is ready. "
-        "(try: `semi_senti init-db --help`, `collect --help`, `analyze --help`, "
-        "`dashboard --help`, `notify --help`, `admin --help`)"
+        "(try: `semi_senti bootstrap --help`, `init-db --help`, `collect --help`, "
+        "`analyze --help`, `dashboard --help`, `notify --help`, `admin --help`)"
     )
     return 0

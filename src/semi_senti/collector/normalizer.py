@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # DART 응답의 금액 문자열에는 쉼표·공백·괄호(음수) 가 섞여 있을 수 있다.
 _RE_NUMBER_CLEAN = re.compile(r"[,\s]")
-_RE_PARENS_NEGATIVE = re.compile(r"^\(([0-9.]+)\)$")
+_RE_PARENS_NEGATIVE = re.compile(r"^\(([0-9.,]+)\)$")
 
 # 통화 변환 기본 환율 (참고용 - 실제로는 환율 API 가 별도 필요).
 # Phase 1 단계에서는 한국 종목만 다루므로 KRW 기본 사용.

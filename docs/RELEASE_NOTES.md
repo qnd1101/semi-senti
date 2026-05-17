@@ -12,7 +12,17 @@
 
 ### Added
 
+- `bootstrap` 명령 및 모듈 (`src/semi_senti/bootstrap.py`) — DB 시딩 + 기본 종목 등록 + 수집·분석 일괄 실행. `python -m semi_senti bootstrap` 또는 `run.bat`/`run.sh`로 원클릭 데모 준비
+- DART corp_code 자동 조회 기능 (`src/semi_senti/collector/dart_corp.py`) — Open DART API로 전체 종목 매핑 다운로드 + 로컬 캐시(`db/cache/dart_corp_codes.json`). `collect --source dart` 실행 시 `--corp-code` 생략 가능
+- 기본 종목 정의 모듈 (`src/semi_senti/data/default_stocks.py`) — 삼성전자·SK하이닉스 메타데이터 (corp_code, news_query) 중앙 관리
+- Cursor 규칙: Karpathy 행동 가이드라인 (`.cursor/rules/karpathy-guidelines.mdc`) — 단순성 우선, 수술적 변경, 목표 기반 실행 원칙
+
 ### Changed
+
+- DART 재무 수집기 개선 — 주식총수 조회(`stockTotqy` API), 재무 데이터 기반 PER/PBR 자동 계산 (지수 API 빈 응답 대응)
+- DB 파일명 통일 — `db/semi_senti.sqlite` → `db/semisenti.db` (README, 웹 설정 예시 반영)
+- `scripts/seed_demo_data.py` 간소화 — bootstrap 모듈 래퍼로 재작성 (중복 제거)
+- `db_seed.py` 완료 메시지 — bootstrap 명령 안내로 변경
 
 ### Fixed
 

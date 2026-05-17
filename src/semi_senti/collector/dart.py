@@ -5,8 +5,9 @@
 
 지원 엔드포인트
 ----------------
-- ``fnlttSinglAcnt.json``  : 단일회사 주요 계정 (매출액·영업이익 등)
-- ``fnlttSinglIndx.json``  : 단일회사 주요 재무 지표 (PER·PBR·EPS 등)
+- ``fnlttSinglAcnt.json``     : 단일회사 주요 계정 (매출·영업이익·순이익·자본)
+- ``fnlttSinglIndx.json``     : 단일회사 주요 재무 지표 (PER·PBR·EPS, 있을 때)
+- ``stockTotqySttus.json``    : 주식 총수 → EPS/BPS 산출, 종가(yfinance)로 PER/PBR 보완
 
 설계
 ----
@@ -37,7 +38,13 @@ _ACCOUNT_NAME_MAP: Dict[str, str] = {
     "수익(매출액)": "revenue",
     "영업이익": "operating_profit",
     "영업이익(손실)": "operating_profit",
+    "당기순이익(손실)": "net_income",
+    "당기순이익": "net_income",
+    "자본총계": "equity",
 }
+
+# 연결(CFS) 우선 — 별도/개별(OFS) 보다 상장사 시장 지표에 적합.
+_FS_DIV_PRIORITY: Dict[str, int] = {"CFS": 0, "OFS": 1}
 
 # DART 주요지표 응답의 idx_nm 매칭. (실제 API 는 다양한 별칭을 사용)
 _INDX_NAME_MAP: Dict[str, str] = {
@@ -48,6 +55,8 @@ _INDX_NAME_MAP: Dict[str, str] = {
     "주가순자산비율": "pbr",
     "PBR": "pbr",
 }
+
+_IDX_CL_CODES = ("M210000", "M220000", "M230000", "M240000")
 
 
 class DartFinancialCollector(BaseCollector):
@@ -133,20 +142,134 @@ class DartFinancialCollector(BaseCollector):
         payload = self._http_get_json("fnlttSinglIndx.json", params)
         return list(payload.get("list", []))
 
+    def fetch_stock_totqy_sttus(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: Optional[str] = None,
+    ) -> list:
+        """``stockTotqySttus.json`` 호출 — 유통(보통) 주식 수."""
+        params = {
+            "crtfc_key": self._require_api_key(),
+            "corp_code": corp_code,
+            "bsns_year": str(bsns_year),
+            "reprt_code": reprt_code or self.settings.dart_default_reprt_code,
+        }
+        payload = self._http_get_json("stockTotqySttus.json", params)
+        return list(payload.get("list", []))
+
+    def _fetch_merged_indices(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: Optional[str] = None,
+    ) -> Dict[str, Optional[float]]:
+        """수익성·안정성·성장성·활동성 지표 API 를 순회해 PER/PBR/EPS 를 병합."""
+        merged: Dict[str, Optional[float]] = {"per": None, "pbr": None, "eps": None}
+        for idx_cl_code in _IDX_CL_CODES:
+            try:
+                rows = self.fetch_single_company_index(
+                    corp_code, bsns_year, reprt_code=reprt_code, idx_cl_code=idx_cl_code
+                )
+            except CollectorError:
+                continue
+            partial = self.parse_index_rows(rows)
+            for key, value in partial.items():
+                if value is not None:
+                    merged[key] = value
+        return merged
+
     # ------------------------------------------------------------------ parse
     @staticmethod
-    def parse_account_rows(rows: list) -> Dict[str, Optional[float]]:
-        """fnlttSinglAcnt.json 응답에서 매출액·영업이익 추출."""
-        out: Dict[str, Optional[float]] = {"revenue": None, "operating_profit": None}
+    def _account_fs_priority(row: Mapping[str, Any]) -> int:
+        fs_div = (row.get("fs_div") or "").strip().upper()
+        return _FS_DIV_PRIORITY.get(fs_div, 9)
+
+    @classmethod
+    def parse_account_rows(cls, rows: list) -> Dict[str, Optional[float]]:
+        """fnlttSinglAcnt.json 응답에서 매출·이익·순이익·자본 추출 (연결 우선)."""
+        fields = ("revenue", "operating_profit", "net_income", "equity")
+        out: Dict[str, Optional[float]] = {name: None for name in fields}
+        best: Dict[str, tuple] = {}
         for row in rows or []:
             name = (row.get("account_nm") or "").strip()
             target = _ACCOUNT_NAME_MAP.get(name)
             if not target:
                 continue
-            # 최근 분기 금액: 'thstrm_amount' / 'thstrm_add_amount' (누적)
             amount = row.get("thstrm_amount") or row.get("thstrm_add_amount")
-            out[target] = DataNormalizer.to_float(amount)
+            value = DataNormalizer.to_float(amount)
+            if value is None:
+                continue
+            priority = cls._account_fs_priority(row)
+            prev = best.get(target)
+            if prev is None or priority < prev[0]:
+                best[target] = (priority, value)
+        for target, (_, value) in best.items():
+            out[target] = value
         return out
+
+    @staticmethod
+    def parse_stock_totqy_rows(rows: list) -> Optional[float]:
+        """stockTotqySttus.json 에서 PER/PBR 산출용 유통 주식 수(주)."""
+        if not rows:
+            return None
+        preferred: Optional[float] = None
+        fallback: Optional[float] = None
+        for row in rows:
+            se = (row.get("se") or "").strip()
+            qty = DataNormalizer.to_float(row.get("distb_stock_co"))
+            if qty is None or qty <= 0:
+                continue
+            if "보통주" in se:
+                preferred = qty
+            if fallback is None or qty > fallback:
+                fallback = qty
+        return preferred if preferred is not None else fallback
+
+    @staticmethod
+    def enrich_valuation_ratios(
+        stock_code: str,
+        data: Mapping[str, Optional[float]],
+        *,
+        close_price: Optional[float] = None,
+    ) -> Dict[str, Optional[float]]:
+        """순이익·자본·주식수·종가로 EPS/PER/PBR 을 보완한다 (API 미제공 시)."""
+        out: Dict[str, Optional[float]] = {
+            "eps": data.get("eps"),
+            "per": data.get("per"),
+            "pbr": data.get("pbr"),
+        }
+        shares = data.get("shares_outstanding")
+        net_income = data.get("net_income")
+        equity = data.get("equity")
+
+        if out["eps"] is None and net_income is not None and shares and shares > 0:
+            out["eps"] = net_income / shares
+
+        bps: Optional[float] = None
+        if equity is not None and shares and shares > 0:
+            bps = equity / shares
+
+        if close_price is None or close_price <= 0:
+            return out
+
+        eps = out["eps"]
+        if out["per"] is None and eps is not None and eps > 0:
+            out["per"] = close_price / eps
+        if out["pbr"] is None and bps is not None and bps > 0:
+            out["pbr"] = close_price / bps
+        return out
+
+    def _latest_close_price(self, stock_code: str) -> Optional[float]:
+        """``financials`` 에 적재된 최신 종가 (price 수집기 결과)."""
+        row = self.db().fetch_one(
+            "SELECT close_price FROM financials WHERE stock_code = ? "
+            "AND close_price IS NOT NULL ORDER BY record_date DESC LIMIT 1",
+            (stock_code,),
+        )
+        if not row:
+            return None
+        return DataNormalizer.to_float(row.get("close_price"))
 
     @staticmethod
     def parse_index_rows(rows: list) -> Dict[str, Optional[float]]:
@@ -189,15 +312,37 @@ class DartFinancialCollector(BaseCollector):
         record_date = record_date or datetime.utcnow().strftime("%Y-%m-%d")
 
         def _api_call() -> Dict[str, Optional[float]]:
-            accounts = self.parse_account_rows(
-                self.fetch_single_company_account(corp_code, bsns_year)
+            account_rows = self.fetch_single_company_account(corp_code, bsns_year)
+            accounts = self.parse_account_rows(account_rows)
+            indices = self._fetch_merged_indices(corp_code, bsns_year)
+
+            shares: Optional[float] = None
+            try:
+                stock_rows = self.fetch_stock_totqy_sttus(corp_code, bsns_year)
+                shares = self.parse_stock_totqy_rows(stock_rows)
+            except CollectorError as exc:
+                _LOGGER.debug("DART 주식총수 조회 스킵(%s): %s", stock_code, exc)
+
+            valuation = self.enrich_valuation_ratios(
+                stock_code,
+                {
+                    "eps": indices.get("eps"),
+                    "per": indices.get("per"),
+                    "pbr": indices.get("pbr"),
+                    "net_income": accounts.get("net_income"),
+                    "equity": accounts.get("equity"),
+                    "shares_outstanding": shares,
+                },
+                close_price=self._latest_close_price(stock_code),
             )
-            indices = self.parse_index_rows(
-                self.fetch_single_company_index(corp_code, bsns_year)
-            )
-            merged: Dict[str, Optional[float]] = {}
-            merged.update(accounts)
-            merged.update(indices)
+
+            merged: Dict[str, Optional[float]] = {
+                "revenue": accounts.get("revenue"),
+                "operating_profit": accounts.get("operating_profit"),
+                "eps": valuation.get("eps"),
+                "per": valuation.get("per"),
+                "pbr": valuation.get("pbr"),
+            }
             return merged
 
         def _fallback() -> Dict[str, Optional[float]]:

@@ -358,9 +358,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 3
 
     print("[DONE] Semi Senti DB 시딩이 정상적으로 끝났습니다.")
-    print("       이제 다음 명령으로 분석을 시작할 수 있습니다:")
-    print("         python -m semi_senti admin list")
-    print("         python -m semi_senti analyze signal --stock-code 005930")
+    print("       원클릭 수집·분석: run.bat (Windows) / ./run.sh (macOS·Linux)")
+    print("       또는: python -m semi_senti bootstrap")
     return 0
 
 

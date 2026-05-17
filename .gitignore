@@ -97,6 +97,7 @@ Desktop.ini
 
 # ----- Project data (local SQLite) -------------------------------------------
 db/*.db
+db/cache/
 db/*.sqlite
 db/*.sqlite3
 db/*.db-journal

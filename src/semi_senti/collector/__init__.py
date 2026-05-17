@@ -22,6 +22,7 @@ Phase 1-2 / 1-3 산출물:
 from .base import BaseCollector, CollectorError
 from .cleaner import TextCleaner
 from .dart import DartFinancialCollector
+from .dart_corp import DartCorpCodeResolver, resolve_corp_code
 from .news import NaverNewsCollector
 from .normalizer import DataNormalizer
 from .price import PriceCollector
@@ -32,6 +33,8 @@ __all__ = [
     "TextCleaner",
     "DataNormalizer",
     "DartFinancialCollector",
+    "DartCorpCodeResolver",
+    "resolve_corp_code",
     "PriceCollector",
     "NaverNewsCollector",
 ]

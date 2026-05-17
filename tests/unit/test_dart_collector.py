@@ -24,6 +24,33 @@ _FAKE_INDEX_ROWS = [
     {"idx_nm": "주가순자산비율(PBR)", "idx_val": "1.4"},
 ]
 
+_FAKE_ACCOUNT_CFS_OFS = [
+    {
+        "account_nm": "매출액",
+        "thstrm_amount": "100",
+        "fs_div": "OFS",
+    },
+    {
+        "account_nm": "매출액",
+        "thstrm_amount": "200",
+        "fs_div": "CFS",
+    },
+    {
+        "account_nm": "당기순이익(손실)",
+        "thstrm_amount": "10,000,000",
+        "fs_div": "CFS",
+    },
+    {
+        "account_nm": "자본총계",
+        "thstrm_amount": "50,000,000",
+        "fs_div": "CFS",
+    },
+]
+
+_FAKE_STOCK_TOTQY = [
+    {"se": "보통주", "distb_stock_co": "1,000"},
+]
+
 
 class TestDartFinancialCollector(unittest.TestCase):
     def setUp(self) -> None:
@@ -47,6 +74,74 @@ class TestDartFinancialCollector(unittest.TestCase):
         self.assertEqual(parsed["eps"], 8500.0)
         self.assertEqual(parsed["per"], 12.3)
         self.assertEqual(parsed["pbr"], 1.4)
+
+    def test_parse_account_rows_prefers_cfs(self) -> None:
+        parsed = DartFinancialCollector.parse_account_rows(_FAKE_ACCOUNT_CFS_OFS)
+        self.assertEqual(parsed["revenue"], 200.0)
+        self.assertEqual(parsed["net_income"], 10000000.0)
+        self.assertEqual(parsed["equity"], 50000000.0)
+
+    def test_parse_stock_totqy_rows(self) -> None:
+        shares = DartFinancialCollector.parse_stock_totqy_rows(_FAKE_STOCK_TOTQY)
+        self.assertEqual(shares, 1000.0)
+
+    def test_enrich_valuation_ratios_from_fundamentals(self) -> None:
+        enriched = DartFinancialCollector.enrich_valuation_ratios(
+            "005930",
+            {
+                "net_income": 10_000_000.0,
+                "equity": 50_000_000.0,
+                "shares_outstanding": 1_000.0,
+                "eps": None,
+                "per": None,
+                "pbr": None,
+            },
+            close_price=20_000.0,
+        )
+        self.assertEqual(enriched["eps"], 10_000.0)
+        self.assertAlmostEqual(enriched["per"], 2.0)
+        self.assertAlmostEqual(enriched["pbr"], 0.4)
+
+    def test_collect_computes_valuation_when_index_empty(self) -> None:
+        with DBControl(db_path=self.db_path) as db:
+            db.upsert(
+                "stocks",
+                {"stock_code": "005930", "name": "삼성전자"},
+                conflict_columns=["stock_code"],
+            )
+            db.upsert(
+                "financials",
+                {
+                    "stock_code": "005930",
+                    "record_date": "2026-05-10",
+                    "close_price": 20_000.0,
+                },
+                conflict_columns=["stock_code", "record_date"],
+            )
+
+        with patch.object(
+            DartFinancialCollector,
+            "fetch_single_company_account",
+            return_value=_FAKE_ACCOUNT_CFS_OFS,
+        ), patch.object(
+            DartFinancialCollector,
+            "_fetch_merged_indices",
+            return_value={"per": None, "pbr": None, "eps": None},
+        ), patch.object(
+            DartFinancialCollector,
+            "fetch_stock_totqy_sttus",
+            return_value=_FAKE_STOCK_TOTQY,
+        ):
+            with DartFinancialCollector() as dc:
+                record = dc.collect_and_store(
+                    stock_code="005930",
+                    corp_code="00126380",
+                    bsns_year="2025",
+                    record_date="2026-05-16",
+                )
+        self.assertEqual(record["eps"], 10_000.0)
+        self.assertAlmostEqual(record["per"], 2.0)
+        self.assertAlmostEqual(record["pbr"], 0.4)
 
     # ---- API 키 검증 ----
     def test_missing_api_key_raises(self) -> None:

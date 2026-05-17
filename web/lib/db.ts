@@ -7,7 +7,7 @@ import initSqlJs, { type Database, type SqlValue } from "sql.js";
  * SQLite read-only 인메모리 뷰 (sql.js WASM).
  * OS 네이티브 모듈 없이 Windows/Node 24 환경에서 동작 (T-051).
  *
- * 환경 변수 `SEMI_SENTI_DB_PATH` — `.env.local` 기준, 보통 레포의 `db/semi_senti.sqlite`.
+ * 환경 변수 `SEMI_SENTI_DB_PATH` — `.env.local` 기준, 보통 레포의 `db/semisenti.db`.
  */
 
 const WASM_SUBDIR = ["node_modules", "sql.js", "dist"] as const;
@@ -17,7 +17,7 @@ let initTask: Promise<Database> | null = null;
 
 export function resolveDbPath(): string {
   const raw = process.env.SEMI_SENTI_DB_PATH?.trim();
-  const rel = raw && raw.length > 0 ? raw : "../db/semi_senti.sqlite";
+  const rel = raw && raw.length > 0 ? raw : "../db/semisenti.db";
   return path.isAbsolute(rel) ? rel : path.resolve(process.cwd(), rel);
 }
 
@@ -42,13 +42,18 @@ export async function getDb(): Promise<Database> {
   if (dbSingleton) return dbSingleton;
   if (!initTask) {
     initTask = (async () => {
-      const SQL = await initSqlJs({
-        locateFile: (f) => wasmLocate(f),
-      });
-      const filePath = resolveDbPath();
-      const buf = fs.readFileSync(filePath);
-      dbSingleton = new SQL.Database(buf);
-      return dbSingleton;
+      try {
+        const SQL = await initSqlJs({
+          locateFile: (f) => wasmLocate(f),
+        });
+        const filePath = resolveDbPath();
+        const buf = fs.readFileSync(filePath);
+        dbSingleton = new SQL.Database(buf);
+        return dbSingleton;
+      } catch (e) {
+        initTask = null;
+        throw e;
+      }
     })();
   }
   return initTask;
