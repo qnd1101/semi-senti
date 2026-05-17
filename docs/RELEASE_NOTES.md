@@ -21,9 +21,12 @@
 - (T-056) `SignalChart` (lightweight-charts v4.2 캔들+밴드+마커) + `SignalMarkerPopover` (클릭 시 시그널 근거 표시)
 - (T-057) `/admin` 관리자 페이지 — 종목 CRUD 테이블(`StockTable`), 시스템 모니터(`SystemMonitor`), 탭 UI + API routes (`/api/admin/stocks`, `/api/admin/system`)
 - (T-058) Python FastAPI 어댑터 (`src/semi_senti/api/`) — health, 종목 CRUD, 시스템 상태, 수동 갱신(가격·뉴스·감성·시그널·사이클) + Next.js `/py-api/*` 프록시 rewrite
+- `run_windows.bat` — Windows 1-click 실행 스크립트 (환경 체크, 가상환경 자동 생성, 의존성 설치, .env 샘플 복사, 포트 충돌 확인, 서버 시작 + 브라우저 오픈)
+- `run_linux.sh` — Linux/macOS 1-click 실행 스크립트 (환경 체크, 가상환경/의존성 자동 설치, 백그라운드 실행 옵션, chmod +x 가이드 포함)
 
 ### Changed
 
+- `README.md` 한국어 전면 재작성 — Quick Start(사용자 대상 1-click 실행 가이드), Development Setup(개발자 대상 수동 설치), Configuration(환경 변수 표), Troubleshooting(자주 발생하는 오류 6종), 디렉토리 구조, 기능 개요, 사용 시나리오, Scripts Reference 섹션 구조화
 - `README.md` 전면 개편 — Phase 5 완료 기준 아키텍처·Next.js/FastAPI/CLI·DB 경로 통일·기본 종목(DART corp_code) 안내
 - `better-sqlite3` → `sql.js` (WASM 기반) 교체: Windows/Node 24 환경에서 네이티브 빌드 문제 해결
 - `app/page.tsx` — SQLite API + SWR로 실데이터 연동 (`?code=` 종목 선택)
