@@ -37,6 +37,10 @@
 
 - DART 재무 적재 시 `financials` UPSERT 가 주가(OHLCV) 컬럼을 `NULL`로 덮어쓰던 문제 수정 — 재무 필드만 갱신
 
+### Removed
+
+- `setup.bat`, `setup.sh` 제거 — `run_windows.bat`, `run_linux.sh`로 대체됨에 따라 구형 스크립트 삭제
+
 ### Deprecated
 
 ### Security
