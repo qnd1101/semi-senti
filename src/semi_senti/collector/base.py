@@ -62,10 +62,9 @@ class BaseCollector(ABC):
     def db(self) -> DBControl:
         """현재 사용 중인 DB 핸들을 반환한다 (없으면 새로 생성하여 보관)."""
         if self._db is None:
-            self._db = DBControl(db_path=self._settings.sqlite_path)
+            self._db = DBControl()
             self._db.connect()
         else:
-            # 외부 주입된 경우 이미 connect 되어 있을 수 있음. 안전하게 connect 호출.
             self._db.connect()
         return self._db
 

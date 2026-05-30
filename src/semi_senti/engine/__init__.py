@@ -18,7 +18,8 @@ from .cycle import CycleAnalyzer, CycleResult, classify_phase, compute_cycle_sco
 from .divergence import DivergenceDetector, DivergenceResult
 from .lexicon import KeywordHit, SemiconductorLexicon, build_default_lexicon
 from .sentiment import SentimentEngine, SentimentResult
-from .signal import SignalDecision, SignalLogic
+from .reasoning import ReasoningEngine, ReasoningResult
+from .signal import MultiPerspectiveResult, SignalDecision, SignalLogic
 from .tokenizer import KoreanTokenizer
 
 __all__ = [
@@ -34,6 +35,10 @@ __all__ = [
     "Band",
     "SignalLogic",
     "SignalDecision",
+    "MultiPerspectiveResult",
+    # reasoning (Phase 3)
+    "ReasoningEngine",
+    "ReasoningResult",
     # divergence
     "DivergenceDetector",
     "DivergenceResult",

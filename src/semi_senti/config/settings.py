@@ -4,6 +4,12 @@
 - 모든 외부 의존 값(API 키·DB 경로·TTL 등)은 환경 변수로만 노출한다.
 - Python 3.8+ 호환을 위해 ``dataclass`` 의 ``slots`` 옵션은 사용하지 않는다.
 - 어떤 모듈도 본 모듈을 거치지 않고 ``os.environ`` 을 직접 읽지 않도록 한다.
+
+PRD v1.2 변경사항
+-----------------
+- SQLite → PostgreSQL (``DATABASE_URL``)
+- yfinance → pykrx
+- Gemini API 연동 (``GEMINI_API_KEY``)
 """
 
 from __future__ import annotations
@@ -67,18 +73,31 @@ class Settings:
     app_env: str = field(default_factory=lambda: _env_str("SEMI_SENTI_ENV", "local"))
     log_level: str = field(default_factory=lambda: _env_str("LOG_LEVEL", "INFO"))
 
-    # ----- SQLite -----------------------------------------------------------
-    sqlite_path: Path = field(
-        default_factory=lambda: Path(
-            _env_str("SEMI_SENTI_SQLITE_PATH", str(PROJECT_ROOT / "db" / "semisenti.db"))
+    # ----- PostgreSQL (F-1.3, PRD §4.2) -------------------------------------
+    database_url: str = field(
+        default_factory=lambda: _env_str(
+            "DATABASE_URL", "postgresql://localhost:5432/semisenti"
         )
     )
-    sqlite_timeout: int = field(default_factory=lambda: _env_int("SEMI_SENTI_SQLITE_TIMEOUT", 10))
+    db_pool_min: int = field(default_factory=lambda: _env_int("DB_POOL_MIN", 1))
+    db_pool_max: int = field(default_factory=lambda: _env_int("DB_POOL_MAX", 10))
+    db_connect_timeout: int = field(default_factory=lambda: _env_int("DB_CONNECT_TIMEOUT", 10))
 
     # ----- 캐시 TTL (F-1.3.2) -----------------------------------------------
     news_cache_ttl_minutes: int = field(default_factory=lambda: _env_int("NEWS_CACHE_TTL_MINUTES", 30))
     financial_cache_ttl_hours: int = field(default_factory=lambda: _env_int("FINANCIAL_CACHE_TTL_HOURS", 24))
     price_cache_ttl_minutes: int = field(default_factory=lambda: _env_int("PRICE_CACHE_TTL_MINUTES", 15))
+    price_poll_interval_seconds: int = field(
+        default_factory=lambda: _env_int("PRICE_POLL_INTERVAL_SECONDS", 60)
+    )
+    live_data_enabled: bool = field(
+        default_factory=lambda: _env_str("LIVE_DATA_ENABLED", "true").lower()
+        in ("1", "true", "yes", "on")
+    )
+
+    # ----- FastAPI (HTTP API) ------------------------------------------------
+    api_host: str = field(default_factory=lambda: _env_str("API_HOST", "0.0.0.0"))
+    api_port: int = field(default_factory=lambda: _env_int("API_PORT", 8001))
 
     # ----- 외부 API : DART --------------------------------------------------
     open_dart_api_key: str = field(default_factory=lambda: _env_str("OPEN_DART_API_KEY", ""))
@@ -104,12 +123,38 @@ class Settings:
     http_timeout_seconds: int = field(default_factory=lambda: _env_int("HTTP_TIMEOUT_SECONDS", 10))
     http_max_retries: int = field(default_factory=lambda: _env_int("HTTP_MAX_RETRIES", 3))
 
-    # ----- yfinance ---------------------------------------------------------
-    yfinance_default_period: str = field(
-        default_factory=lambda: _env_str("YFINANCE_DEFAULT_PERIOD", "1mo")
+    # ----- pykrx (F-1.1.2, PRD §4.2) ----------------------------------------
+    pykrx_date_from: str = field(
+        default_factory=lambda: _env_str("PYKRX_DATE_FROM", "20140101")
     )
-    yfinance_default_interval: str = field(
-        default_factory=lambda: _env_str("YFINANCE_DEFAULT_INTERVAL", "1d")
+
+    # ----- Gemini API (F-3.3) -----------------------------------------------
+    gemini_api_key: str = field(default_factory=lambda: _env_str("GEMINI_API_KEY", ""))
+    gemini_model: str = field(
+        default_factory=lambda: _env_str("GEMINI_MODEL", "gemini-1.5-flash")
+    )
+    gemini_timeout_seconds: int = field(
+        default_factory=lambda: _env_int("GEMINI_TIMEOUT_SECONDS", 5)
+    )
+
+    # ----- 다중 관점 시그널 가중치 (F-3.2) ------------------------------------
+    signal_short_buy_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_SHORT_BUY_THRESHOLD", "25"))
+    )
+    signal_short_sell_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_SHORT_SELL_THRESHOLD", "-25"))
+    )
+    signal_mid_buy_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_MID_BUY_THRESHOLD", "25"))
+    )
+    signal_mid_sell_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_MID_SELL_THRESHOLD", "-25"))
+    )
+    signal_long_buy_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_LONG_BUY_THRESHOLD", "25"))
+    )
+    signal_long_sell_threshold: float = field(
+        default_factory=lambda: float(_env_str("SIGNAL_LONG_SELL_THRESHOLD", "-25"))
     )
 
     # ----- 텔레그램 (Phase 4) -----------------------------------------------
@@ -185,6 +230,15 @@ class Settings:
     def project_root(self) -> Path:
         """프로젝트 루트 경로 (읽기 전용)."""
         return PROJECT_ROOT
+
+    @property
+    def sqlite_path(self) -> Path:
+        """하위 호환 속성 — PostgreSQL 전환 후 코드에서 점진적 제거 예정.
+
+        ``DBControl(db_path=self.sqlite_path)`` 호출 시 ``db_path`` 인자는
+        ``DBControl.__init__`` 에서 무시되며 ``DATABASE_URL`` 이 사용된다.
+        """
+        return PROJECT_ROOT / "db" / "semisenti.db"  # dummy (DBControl 내부에서 무시됨)
 
 
 # 모듈 임포트 시점에 .env 를 한 번만 로드한다.

@@ -1,8 +1,8 @@
 """데이터베이스 접근 계층 및 스키마 유틸리티.
 
-본 패키지는 SQLite DB 의 단일 진입점을 제공한다.
-모든 상위 모듈(``collector``, ``engine``, ``dashboard``, ``admin``)은
-직접 ``sqlite3`` 를 임포트하지 않고 본 패키지를 통해서만 DB 에 접근한다.
+PRD v1.2: PostgreSQL 기반으로 전환 (F-1.3).
+모든 상위 모듈(``collector``, ``engine``, ``admin``)은
+직접 psycopg2 를 임포트하지 않고 본 패키지를 통해서만 DB 에 접근한다.
 
 Quick start::
 

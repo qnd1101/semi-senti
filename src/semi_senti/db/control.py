@@ -1,33 +1,62 @@
-"""모든 모듈이 공유하는 SQLite 접근 창구 (``DBControl``).
+"""PostgreSQL 접근 창구 (``DBControl``).
+
+PRD v1.2: SQLite → PostgreSQL 전환 (F-1.3, §4.2)
 
 설계 원칙
 ---------
-- **단일 책임**: 본 클래스는 SQL 실행/트랜잭션/연결 관리만 담당한다.
-  비즈니스 로직(NLP, 시그널 산출 등) 은 호출자가 책임진다.
-- **컨텍스트 매니저**: ``with DBControl() as db:`` 패턴으로 connection
-  누수를 원천 차단한다.
-- **트랜잭션**: ``transaction()`` 컨텍스트로 명시적으로 묶을 수 있으며,
-  단순 CRUD 헬퍼는 호출 시점 자동 커밋한다.
-- **Row 반환 형태**: ``sqlite3.Row`` (dict-like) 로 통일하여 호출자 편의성↑.
-- **하드코딩 금지**: 기본 DB 경로/타임아웃은 ``Settings`` 에서 주입받는다.
-- **예외 일원화**: 모든 SQLite 예외는 ``DBControlError`` 로 래핑하여
-  상위 계층이 동일한 except 절로 처리할 수 있게 한다.
+- **단일 책임**: SQL 실행/트랜잭션/연결 관리만 담당.
+- **컨텍스트 매니저**: ``with DBControl() as db:`` 패턴으로 connection 누수 차단.
+- **트랜잭션**: ``transaction()`` 컨텍스트로 명시적 묶음.
+- **Row 반환 형태**: ``dict`` 로 통일.
+- **하드코딩 금지**: 연결 URL은 ``Settings.database_url`` 에서 주입.
+- **예외 일원화**: 모든 psycopg2 예외는 ``DBControlError`` 로 래핑.
+- **플레이스홀더**: 내부에서 ``?`` → ``%s`` 자동 변환 (기존 쿼리 호환).
 """
 
 from __future__ import annotations
 
 import logging
-import sqlite3
+import re
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
+
+try:
+    import psycopg2
+    import psycopg2.extras
+    import psycopg2.extensions
+except ImportError as _e:  # pragma: no cover
+    raise ImportError(
+        "psycopg2 가 설치되지 않았습니다. `pip install psycopg2-binary` 를 실행하세요."
+    ) from _e
 
 from ..config import get_settings
 
 _LOGGER = logging.getLogger(__name__)
 
-# 바인딩 파라미터 허용 타입 (sqlite3 표준).
 ParamsType = Union[Sequence[Any], Mapping[str, Any], None]
+
+_QMARK_RE = re.compile(r"\?")
+
+
+def _to_pg_params(sql: str, params: ParamsType) -> Tuple[str, Any]:
+    """``?`` 플레이스홀더를 ``%s`` 로 변환한다.
+
+    Named dict params(``{:name}``) 는 psycopg2 ``%(name)s`` 로 변환.
+    이미 ``%s`` 형식이면 그대로 통과.
+    """
+    if params is None:
+        return sql, ()
+
+    if isinstance(params, Mapping):
+        pg_sql = re.sub(r":(\w+)", r"%(\1)s", sql)
+        return pg_sql, params
+
+    count = sql.count("?")
+    if count > 0:
+        pg_sql = _QMARK_RE.sub("%s", sql)
+        return pg_sql, tuple(params)
+
+    return sql, tuple(params)
 
 
 class DBControlError(RuntimeError):
@@ -35,78 +64,76 @@ class DBControlError(RuntimeError):
 
 
 class DBControl:
-    """SQLite CRUD 공통 인터페이스.
+    """PostgreSQL CRUD 공통 인터페이스.
 
     Parameters
     ----------
-    db_path:
-        명시되지 않으면 ``Settings.sqlite_path`` 를 사용한다.
-    timeout:
-        ``sqlite3.connect`` 의 timeout(초). 미지정 시 ``Settings.sqlite_timeout``.
-    enable_foreign_keys:
-        외래 키 제약 활성화 여부. 기본 True.
+    db_url:
+        명시되지 않으면 ``Settings.database_url`` 을 사용한다.
+    connect_timeout:
+        연결 타임아웃(초). 미지정 시 ``Settings.db_connect_timeout``.
     """
 
     def __init__(
         self,
-        db_path: Optional[Union[str, Path]] = None,
+        db_url: Optional[str] = None,
         *,
-        timeout: Optional[int] = None,
+        connect_timeout: Optional[int] = None,
+        # 하위 호환: SQLite 경로 인자 무시
+        db_path: Any = None,
+        timeout: Any = None,
         enable_foreign_keys: bool = True,
     ) -> None:
         settings = get_settings()
-        self._db_path: Path = (
-            Path(db_path).expanduser().resolve()
-            if db_path is not None
-            else Path(settings.sqlite_path).expanduser().resolve()
+        self._db_url: str = db_url or settings.database_url
+        self._connect_timeout: int = (
+            connect_timeout if connect_timeout is not None else settings.db_connect_timeout
         )
-        self._timeout: int = timeout if timeout is not None else settings.sqlite_timeout
-        self._enable_fk: bool = enable_foreign_keys
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: Optional[psycopg2.extensions.connection] = None
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Lifecycle
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     @property
-    def db_path(self) -> Path:
-        return self._db_path
+    def db_url(self) -> str:
+        return self._db_url
 
     @property
-    def connection(self) -> sqlite3.Connection:
-        """현재 열린 연결을 반환한다. 없으면 ``DBControlError``."""
-        if self._conn is None:
+    def connection(self) -> psycopg2.extensions.connection:
+        if self._conn is None or self._conn.closed:
             raise DBControlError(
                 "DB 연결이 열려 있지 않습니다. 'with DBControl() as db:' 형태로 사용하거나 connect() 를 호출하세요."
             )
         return self._conn
 
-    def connect(self) -> sqlite3.Connection:
-        """수동 연결. 컨텍스트 매니저 사용을 권장한다."""
-        if self._conn is not None:
+    def connect(self) -> psycopg2.extensions.connection:
+        if self._conn is not None and not self._conn.closed:
             return self._conn
         try:
-            self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(
-                str(self._db_path),
-                timeout=self._timeout,
-                detect_types=sqlite3.PARSE_DECLTYPES,
-            )
-            conn.row_factory = sqlite3.Row
-            if self._enable_fk:
-                conn.execute("PRAGMA foreign_keys = ON;")
+            dsn = self._db_url
+            if "connect_timeout" not in dsn:
+                conn = psycopg2.connect(
+                    dsn, connect_timeout=self._connect_timeout,
+                    cursor_factory=psycopg2.extras.RealDictCursor,
+                )
+            else:
+                conn = psycopg2.connect(
+                    dsn,
+                    cursor_factory=psycopg2.extras.RealDictCursor,
+                )
+            conn.autocommit = False
             self._conn = conn
-            _LOGGER.debug("SQLite 연결 생성: %s", self._db_path)
+            _LOGGER.debug("PostgreSQL 연결 생성: %s", _mask_dsn(self._db_url))
             return conn
-        except (sqlite3.Error, OSError) as exc:
-            raise DBControlError(f"SQLite 연결 실패: {self._db_path} ({exc})") from exc
+        except psycopg2.Error as exc:
+            raise DBControlError(f"PostgreSQL 연결 실패: {exc}") from exc
 
     def close(self) -> None:
-        """연결을 안전하게 종료한다. 이미 닫혀 있으면 무시한다."""
-        if self._conn is not None:
+        if self._conn is not None and not self._conn.closed:
             try:
                 self._conn.close()
-            except sqlite3.Error as exc:  # pragma: no cover
-                _LOGGER.warning("SQLite 연결 종료 중 경고: %s", exc)
+            except psycopg2.Error as exc:  # pragma: no cover
+                _LOGGER.warning("PostgreSQL 연결 종료 중 경고: %s", exc)
             finally:
                 self._conn = None
 
@@ -117,15 +144,11 @@ class DBControl:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Transaction
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
-        """명시적 트랜잭션 컨텍스트.
-
-        예외 발생 시 자동 rollback, 정상 종료 시 commit.
-        """
+    def transaction(self) -> Iterator[psycopg2.extensions.connection]:
         conn = self.connect()
         try:
             yield conn
@@ -133,85 +156,120 @@ class DBControl:
         except Exception:
             try:
                 conn.rollback()
-            except sqlite3.Error as rollback_exc:  # pragma: no cover
+            except psycopg2.Error as rollback_exc:  # pragma: no cover
                 _LOGGER.error("rollback 실패: %s", rollback_exc)
             raise
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Low-level execute
-    # ---------------------------------------------------------------------
-    def execute(self, sql: str, params: ParamsType = None) -> sqlite3.Cursor:
-        """단일 SQL 실행 (자동 커밋). 결과 커서를 반환한다."""
+    # ------------------------------------------------------------------
+    def execute(self, sql: str, params: ParamsType = None) -> psycopg2.extensions.cursor:
         conn = self.connect()
+        pg_sql, pg_params = _to_pg_params(sql, params)
         try:
-            cur = conn.execute(sql, params or ())
+            cur = conn.cursor()
+            cur.execute(pg_sql, pg_params if pg_params else None)
             conn.commit()
             return cur
-        except sqlite3.Error as exc:
+        except psycopg2.Error as exc:
             try:
                 conn.rollback()
-            except sqlite3.Error:  # pragma: no cover
+            except psycopg2.Error:  # pragma: no cover
                 pass
-            raise DBControlError(f"SQL 실행 실패: {sql.strip().splitlines()[0]} ({exc})") from exc
+            raise DBControlError(
+                f"SQL 실행 실패: {sql.strip().splitlines()[0]} ({exc})"
+            ) from exc
 
-    def executemany(self, sql: str, seq_of_params: Iterable[ParamsType]) -> sqlite3.Cursor:
-        """다건 배치 실행 (자동 커밋)."""
+    def executemany(self, sql: str, seq_of_params: Iterable[ParamsType]) -> psycopg2.extensions.cursor:
         conn = self.connect()
+        rows = list(seq_of_params)
+        if not rows:
+            cur = conn.cursor()
+            return cur
+        pg_sql, _ = _to_pg_params(sql, rows[0])
+        pg_rows = [_to_pg_params(sql, r)[1] for r in rows]
         try:
-            cur = conn.executemany(sql, list(seq_of_params))
+            cur = conn.cursor()
+            psycopg2.extras.execute_batch(cur, pg_sql, pg_rows)
             conn.commit()
             return cur
-        except sqlite3.Error as exc:
+        except psycopg2.Error as exc:
             try:
                 conn.rollback()
-            except sqlite3.Error:  # pragma: no cover
+            except psycopg2.Error:  # pragma: no cover
                 pass
             raise DBControlError(f"executemany 실패: {sql.strip().splitlines()[0]} ({exc})") from exc
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Read helpers
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def fetch_one(self, sql: str, params: ParamsType = None) -> Optional[Dict[str, Any]]:
-        """단일 행을 dict 로 반환. 결과가 없으면 ``None``."""
         conn = self.connect()
+        pg_sql, pg_params = _to_pg_params(sql, params)
         try:
-            cur = conn.execute(sql, params or ())
+            cur = conn.cursor()
+            cur.execute(pg_sql, pg_params if pg_params else None)
             row = cur.fetchone()
             return dict(row) if row is not None else None
-        except sqlite3.Error as exc:
+        except psycopg2.Error as exc:
             raise DBControlError(f"fetch_one 실패: {exc}") from exc
 
     def fetch_all(self, sql: str, params: ParamsType = None) -> List[Dict[str, Any]]:
-        """모든 행을 dict 리스트로 반환."""
         conn = self.connect()
+        pg_sql, pg_params = _to_pg_params(sql, params)
         try:
-            cur = conn.execute(sql, params or ())
+            cur = conn.cursor()
+            cur.execute(pg_sql, pg_params if pg_params else None)
             return [dict(row) for row in cur.fetchall()]
-        except sqlite3.Error as exc:
+        except psycopg2.Error as exc:
             raise DBControlError(f"fetch_all 실패: {exc}") from exc
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # CRUD helpers
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def insert(self, table: str, data: Mapping[str, Any]) -> int:
-        """단일 row INSERT. 새로 생성된 ``rowid`` 를 반환한다."""
         if not data:
             raise DBControlError("insert 데이터가 비어 있습니다.")
-        columns, placeholders, values = self._split_columns(data)
-        sql = f"INSERT INTO {self._quote_ident(table)} ({columns}) VALUES ({placeholders})"
-        cur = self.execute(sql, values)
-        return int(cur.lastrowid or 0)
+        cols = list(data.keys())
+        col_sql = ", ".join(f'"{c}"' for c in cols)
+        ph_sql = ", ".join("%s" for _ in cols)
+        values = tuple(data[c] for c in cols)
+        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({ph_sql}) RETURNING id'
+        conn = self.connect()
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, values)
+            row = cur.fetchone()
+            conn.commit()
+            return int(row["id"]) if row and "id" in row else 0
+        except psycopg2.Error as exc:
+            try:
+                conn.rollback()
+            except psycopg2.Error:  # pragma: no cover
+                pass
+            raise DBControlError(f"insert 실패: {exc}") from exc
 
     def insert_many(self, table: str, rows: Sequence[Mapping[str, Any]]) -> int:
-        """다건 INSERT. 반영된 row 개수를 반환한다."""
         if not rows:
             return 0
         first = rows[0]
-        columns = ", ".join(self._quote_ident(c) for c in first.keys())
-        placeholders = ", ".join(f":{c}" for c in first.keys())
-        sql = f"INSERT INTO {self._quote_ident(table)} ({columns}) VALUES ({placeholders})"
-        cur = self.executemany(sql, rows)
-        return int(cur.rowcount or 0)
+        cols = list(first.keys())
+        col_sql = ", ".join(f'"{c}"' for c in cols)
+        ph_sql = ", ".join("%s" for _ in cols)
+        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({ph_sql})'
+        pg_rows = [tuple(r[c] for c in cols) for r in rows]
+        conn = self.connect()
+        try:
+            cur = conn.cursor()
+            psycopg2.extras.execute_batch(cur, sql, pg_rows)
+            conn.commit()
+            return cur.rowcount or 0
+        except psycopg2.Error as exc:
+            try:
+                conn.rollback()
+            except psycopg2.Error:  # pragma: no cover
+                pass
+            raise DBControlError(f"insert_many 실패: {exc}") from exc
 
     def upsert(
         self,
@@ -220,39 +278,41 @@ class DBControl:
         conflict_columns: Sequence[str],
         update_columns: Optional[Sequence[str]] = None,
     ) -> int:
-        """SQLite ``INSERT ... ON CONFLICT ... DO UPDATE`` 헬퍼.
-
-        Parameters
-        ----------
-        conflict_columns:
-            충돌 판별 컬럼 (PK 또는 UNIQUE 인덱스).
-        update_columns:
-            충돌 시 갱신할 컬럼. 미지정 시 ``data`` 의 비-conflict 컬럼 전체.
-        """
         if not data:
             raise DBControlError("upsert 데이터가 비어 있습니다.")
         if not conflict_columns:
             raise DBControlError("upsert 의 conflict_columns 가 비어 있습니다.")
 
-        columns, placeholders, values = self._split_columns(data)
+        cols = list(data.keys())
+        col_sql = ", ".join(f'"{c}"' for c in cols)
+        ph_sql = ", ".join("%s" for _ in cols)
+        values = tuple(data[c] for c in cols)
+
         upd_cols = list(update_columns) if update_columns else [
-            c for c in data.keys() if c not in conflict_columns
+            c for c in cols if c not in conflict_columns
         ]
 
-        sql = f"INSERT INTO {self._quote_ident(table)} ({columns}) VALUES ({placeholders})"
+        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({ph_sql})'
         if upd_cols:
-            conflict_part = ", ".join(self._quote_ident(c) for c in conflict_columns)
-            update_part = ", ".join(
-                f"{self._quote_ident(c)} = excluded.{self._quote_ident(c)}" for c in upd_cols
-            )
-            sql += f" ON CONFLICT({conflict_part}) DO UPDATE SET {update_part}"
+            conflict_part = ", ".join(f'"{c}"' for c in conflict_columns)
+            update_part = ", ".join(f'"{c}" = EXCLUDED."{c}"' for c in upd_cols)
+            sql += f" ON CONFLICT ({conflict_part}) DO UPDATE SET {update_part}"
         else:
-            # 갱신할 컬럼이 없을 경우 충돌은 무시.
-            conflict_part = ", ".join(self._quote_ident(c) for c in conflict_columns)
-            sql += f" ON CONFLICT({conflict_part}) DO NOTHING"
+            conflict_part = ", ".join(f'"{c}"' for c in conflict_columns)
+            sql += f" ON CONFLICT ({conflict_part}) DO NOTHING"
 
-        cur = self.execute(sql, values)
-        return int(cur.rowcount or 0)
+        conn = self.connect()
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, values)
+            conn.commit()
+            return cur.rowcount or 0
+        except psycopg2.Error as exc:
+            try:
+                conn.rollback()
+            except psycopg2.Error:  # pragma: no cover
+                pass
+            raise DBControlError(f"upsert 실패: {exc}") from exc
 
     def update(
         self,
@@ -261,68 +321,79 @@ class DBControl:
         where: str,
         where_params: ParamsType = None,
     ) -> int:
-        """UPDATE. 반영된 row 개수를 반환한다."""
         if not data:
             raise DBControlError("update 데이터가 비어 있습니다.")
         if not where.strip():
-            # 안전장치: where 절 누락 시 전체 갱신을 방지.
             raise DBControlError("update 시 where 절은 필수입니다.")
-        set_clause = ", ".join(f"{self._quote_ident(k)} = ?" for k in data.keys())
-        values: Tuple[Any, ...] = tuple(data.values())
-        if where_params is None:
-            where_values: Tuple[Any, ...] = ()
-        elif isinstance(where_params, Mapping):
-            raise DBControlError("update 의 where_params 는 시퀀스여야 합니다.")
-        else:
-            where_values = tuple(where_params)
-        sql = f"UPDATE {self._quote_ident(table)} SET {set_clause} WHERE {where}"
-        cur = self.execute(sql, values + where_values)
-        return int(cur.rowcount or 0)
+
+        cols = list(data.keys())
+        set_clause = ", ".join(f'"{c}" = %s' for c in cols)
+        values: Tuple[Any, ...] = tuple(data[c] for c in cols)
+
+        where_pg, where_vals = _to_pg_params(where, where_params)
+        sql = f'UPDATE "{table}" SET {set_clause} WHERE {where_pg}'
+
+        conn = self.connect()
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, values + (where_vals if isinstance(where_vals, tuple) else tuple(where_vals)))
+            conn.commit()
+            return cur.rowcount or 0
+        except psycopg2.Error as exc:
+            try:
+                conn.rollback()
+            except psycopg2.Error:  # pragma: no cover
+                pass
+            raise DBControlError(f"update 실패: {exc}") from exc
 
     def delete(self, table: str, where: str, where_params: ParamsType = None) -> int:
-        """DELETE. 반영된 row 개수를 반환한다."""
         if not where.strip():
             raise DBControlError("delete 시 where 절은 필수입니다.")
-        sql = f"DELETE FROM {self._quote_ident(table)} WHERE {where}"
-        cur = self.execute(sql, where_params)
-        return int(cur.rowcount or 0)
+        where_pg, where_vals = _to_pg_params(where, where_params)
+        sql = f'DELETE FROM "{table}" WHERE {where_pg}'
+        conn = self.connect()
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, where_vals if where_vals else None)
+            conn.commit()
+            return cur.rowcount or 0
+        except psycopg2.Error as exc:
+            try:
+                conn.rollback()
+            except psycopg2.Error:  # pragma: no cover
+                pass
+            raise DBControlError(f"delete 실패: {exc}") from exc
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Inspection helpers
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def table_exists(self, table: str) -> bool:
-        """``sqlite_master`` 로 테이블 존재 여부 확인."""
         row = self.fetch_one(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?;",
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = %s",
             (table,),
         )
         return row is not None
 
     def list_tables(self) -> List[str]:
         rows = self.fetch_all(
-            "SELECT name FROM sqlite_master WHERE type = 'table' "
-            "AND name NOT LIKE 'sqlite_%' ORDER BY name;"
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'public' ORDER BY table_name"
         )
-        return [r["name"] for r in rows]
+        return [r["table_name"] for r in rows]
 
-    # ---------------------------------------------------------------------
-    # Internal utilities
-    # ---------------------------------------------------------------------
-    @staticmethod
-    def _quote_ident(identifier: str) -> str:
-        """식별자 따옴표 처리(예약어/대소문자 안전)."""
-        if not identifier or not isinstance(identifier, str):
-            raise DBControlError(f"유효하지 않은 식별자: {identifier!r}")
-        # SQLite 권장 따옴표(이중 따옴표) 사용. 내부 이중 따옴표는 이스케이프.
-        return '"' + identifier.replace('"', '""') + '"'
+    # ------------------------------------------------------------------
+    # 하위 호환 — SQLite 시절 속성
+    # ------------------------------------------------------------------
+    @property
+    def db_path(self):  # pragma: no cover
+        """SQLite 시절 호환 속성. database_url 반환."""
+        return self._db_url
 
-    @classmethod
-    def _split_columns(
-        cls, data: Mapping[str, Any]
-    ) -> Tuple[str, str, Tuple[Any, ...]]:
-        """data dict 를 (컬럼절, 플레이스홀더절, 값 튜플) 로 분해."""
-        cols = list(data.keys())
-        columns_sql = ", ".join(cls._quote_ident(c) for c in cols)
-        placeholders_sql = ", ".join("?" for _ in cols)
-        values = tuple(data[c] for c in cols)
-        return columns_sql, placeholders_sql, values
+
+# ------------------------------------------------------------------
+# Internal utilities
+# ------------------------------------------------------------------
+def _mask_dsn(dsn: str) -> str:
+    """DSN 내 패스워드를 마스킹해 로그에 노출하지 않는다."""
+    return re.sub(r"(:)[^:@]+(@)", r"\1***\2", dsn)

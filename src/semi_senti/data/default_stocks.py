@@ -54,3 +54,19 @@ def iter_default_stocks(codes: Optional[Sequence[str]] = None) -> Tuple[DefaultS
         return DEFAULT_STOCKS
     wanted = {c.strip() for c in codes if c and c.strip()}
     return tuple(s for s in DEFAULT_STOCKS if s.stock_code in wanted)
+
+
+def ensure_default_stocks_registered(db) -> None:
+    """기본 종목(삼성전자·SK하이닉스)을 stocks 테이블에 upsert."""
+    for stock in DEFAULT_STOCKS:
+        db.upsert(
+            "stocks",
+            {
+                "stock_code": stock.stock_code,
+                "name": stock.name,
+                "market": stock.market,
+                "is_active": 1,
+            },
+            conflict_columns=["stock_code"],
+            update_columns=["name", "market", "is_active"],
+        )

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semi-senti"
-version = "0.1.0"
-description = "Semiconductor-focused sentiment and fundamental signal dashboard"
+version = "1.2.0"
+description = "Semiconductor-focused sentiment and fundamental signal engine — PostgreSQL + pykrx + Gemini (PRD v1.2)"
 readme = "README.md"
 # PRD §4.2 / Tasks T-001: Python 3.8 이상
 requires-python = ">=3.8"
@@ -19,17 +19,19 @@ dependencies = [
 
 [project.optional-dependencies]
 collector = [
-    "yfinance>=0.2.40",
+    "pykrx>=1.0.45",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
+]
+db = [
+    "psycopg2-binary>=2.9.9",
+]
+reasoning = [
+    "google-generativeai>=0.7.0",
 ]
 nlp = [
     "konlpy>=0.6.0",
     "JPype1>=1.5.0,<2.0.0",
-]
-dashboard = [
-    "streamlit>=1.33.0",
-    "streamlit-lightweight-charts>=0.7.0",
 ]
 notifier = [
     "python-telegram-bot>=20.0,<21.0",

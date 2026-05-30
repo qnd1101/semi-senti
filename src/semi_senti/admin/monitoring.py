@@ -4,8 +4,7 @@
 > "특정 종목의 데이터를 즉시 갱신하여 최신 분석 결과를 확보한다."
 
 본 모듈은 1인 운영자 관점의 *상태 요약 + 단발성 갱신 트리거* 를 제공한다.
-무거운 스케줄러/대시보드 위젯은 ``dashboard/admin_panel.py`` (Streamlit) 에서
-호출한다.
+운영 모니터링은 CLI ``admin status`` 및 FastAPI를 통해 호출한다.
 """
 
 from __future__ import annotations
@@ -217,7 +216,29 @@ class SystemMonitor:
             result["steps"]["price"] = {"ok": False, "error": str(exc)}
             result["errors"].append(f"price: {exc}")
 
-        # 2) 뉴스 수집 (query 가 명시된 경우만)
+        # 2) DART 재무 (API 키 있을 때)
+        if self._settings.open_dart_api_key:
+            try:
+                from ..collector import DartFinancialCollector
+                from ..collector.dart_corp import resolve_corp_code
+                from ..data.default_stocks import get_default_stock
+
+                meta = get_default_stock(stock_code)
+                corp_code = resolve_corp_code(stock_code, settings=self._settings)
+                year = str(datetime.now().year - 1)
+                with DartFinancialCollector(db=self.db(), settings=self._settings) as dc:
+                    record = dc.collect_and_store(
+                        stock_code=stock_code,
+                        corp_code=corp_code,
+                        bsns_year=year,
+                        stock_name=(meta.name if meta else None),
+                    )
+                result["steps"]["dart"] = {"ok": True, "record": record}
+            except Exception as exc:  # pylint: disable=broad-except
+                result["steps"]["dart"] = {"ok": False, "error": str(exc)}
+                result["errors"].append(f"dart: {exc}")
+
+        # 3) 뉴스 수집 (query 가 명시된 경우만)
         if news_query:
             try:
                 from ..collector import NaverNewsCollector
@@ -231,7 +252,7 @@ class SystemMonitor:
                 result["steps"]["news"] = {"ok": False, "error": str(exc)}
                 result["errors"].append(f"news: {exc}")
 
-        # 3) 감성 분석 + 적재
+        # 4) 감성 분석 + 적재
         if run_sentiment:
             try:
                 from ..engine import SentimentEngine
@@ -251,7 +272,7 @@ class SystemMonitor:
                 result["steps"]["sentiment"] = {"ok": False, "error": str(exc)}
                 result["errors"].append(f"sentiment: {exc}")
 
-        # 4) 시그널 산출 + 적재
+        # 5) 시그널 산출 + 적재
         if run_signal:
             try:
                 from ..engine import SignalLogic
@@ -267,7 +288,7 @@ class SystemMonitor:
                 result["steps"]["signal"] = {"ok": False, "error": str(exc)}
                 result["errors"].append(f"signal: {exc}")
 
-        # 5) 사이클 분석 (T-045)
+        # 6) 사이클 분석 (T-045)
         if run_cycle:
             try:
                 from ..engine import CycleAnalyzer

@@ -144,24 +144,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="다이버전스 윈도우 (divergence). 기본: Settings.divergence_window_days",
     )
 
-    # ---- dashboard 서브커맨드 (Phase 3, T-037~T-039) -----------------------
-    dashboard_parser = subparsers.add_parser(
-        "dashboard",
-        help="Run Streamlit dashboard (`streamlit run` wrapper)",
-    )
-    dashboard_parser.add_argument(
-        "--port", type=int, default=8501,
-        help="Streamlit 서버 포트 (기본 8501)",
-    )
-    dashboard_parser.add_argument(
-        "--address", default="localhost",
-        help="Streamlit 서버 바인딩 주소 (기본 localhost)",
-    )
-    dashboard_parser.add_argument(
-        "--headless", action="store_true",
-        help="Streamlit 을 --server.headless=true 로 실행",
-    )
-
     # ---- notify 서브커맨드 (Phase 4-1, T-041 ~ T-043) ----------------------
     notify_parser = subparsers.add_parser(
         "notify",
@@ -578,52 +560,6 @@ def _cmd_admin(args: argparse.Namespace) -> int:
     return 2
 
 
-def _cmd_dashboard(args: argparse.Namespace) -> int:
-    """``streamlit run <dashboard/app.py>`` 를 서브프로세스로 실행."""
-    import subprocess
-    from pathlib import Path
-
-    try:
-        import streamlit  # noqa: F401  # type: ignore[import-untyped]
-    except ImportError:
-        print(
-            "[ERROR] streamlit 이 설치되어 있지 않습니다. "
-            "`pip install streamlit streamlit-lightweight-charts` 후 다시 시도하세요.",
-            file=sys.stderr,
-        )
-        return 2
-
-    app_path = Path(__file__).resolve().parent / "dashboard" / "app.py"
-    if not app_path.is_file():
-        print(f"[ERROR] dashboard/app.py 를 찾을 수 없습니다: {app_path}", file=sys.stderr)
-        return 2
-
-    # venv 활성화 없이 ``python.exe -m semi_senti`` 로 실행해도 동일 환경의 streamlit 사용.
-    cmd = [
-        sys.executable,
-        "-m",
-        "streamlit",
-        "run",
-        str(app_path),
-        "--server.port",
-        str(args.port),
-        "--server.address",
-        str(args.address),
-    ]
-    if args.headless:
-        cmd.extend(["--server.headless", "true"])
-
-    print(f"[INFO] 대시보드 실행: {' '.join(cmd)}")
-    try:
-        return int(subprocess.call(cmd))
-    except KeyboardInterrupt:
-        print("\n[INFO] 대시보드 종료 요청 수신")
-        return 0
-    except OSError as exc:
-        print(f"[ERROR] 대시보드 실행 실패: {exc}", file=sys.stderr)
-        return 2
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     _configure_logging()
     args = build_parser().parse_args(argv)
@@ -642,8 +578,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         return _cmd_collect(args)
     if args.command == "analyze":
         return _cmd_analyze(args)
-    if args.command == "dashboard":
-        return _cmd_dashboard(args)
     if args.command == "notify":
         return _cmd_notify(args)
     if args.command == "admin":
@@ -652,6 +586,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(
         "semi_senti CLI is ready. "
         "(try: `semi_senti bootstrap --help`, `init-db --help`, `collect --help`, "
-        "`analyze --help`, `dashboard --help`, `notify --help`, `admin --help`)"
+        "`analyze --help`, `notify --help`, `admin --help`)"
     )
     return 0

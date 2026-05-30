@@ -2,8 +2,8 @@
 
 > "분석 대상 종목 목록을 추가·수정·삭제할 수 있는 관리 인터페이스를 제공한다."
 
-본 모듈은 종목 코드 유효성 검증(yfinance) 후 ``stocks`` 테이블에 적재한다.
-- 등록 시 yfinance 로 ticker 가 유효한지 확인 (UC-06 §E1).
+본 모듈은 종목 코드 유효성 검증(pykrx) 후 ``stocks`` 테이블에 적재한다.
+- 등록 시 pykrx 로 OHLCV 존재 여부 확인 (UC-06 §E1).
 - 삭제는 외래 키 ``ON DELETE CASCADE`` 로 관련 데이터까지 정리된다.
 - 비활성화(soft delete) 도 별도 메서드로 제공.
 """
@@ -30,7 +30,7 @@ class StockAdminError(RuntimeError):
 
 @dataclass
 class StockValidationResult:
-    """yfinance 검증 결과."""
+    """pykrx 검증 결과."""
 
     is_valid: bool
     yahoo_symbol: str
@@ -39,7 +39,7 @@ class StockValidationResult:
 
 
 class StockAdmin:
-    """``stocks`` 테이블 관리 + yfinance 검증.
+    """``stocks`` 테이블 관리 + pykrx 검증.
 
     - 종목 코드 형식: 한국 6자리 숫자만 허용.
     - 시장 구분: KOSPI / KOSDAQ.
@@ -104,59 +104,23 @@ class StockAdmin:
     def validate_with_yfinance(
         self, stock_code: str, market: str = "KOSPI"
     ) -> StockValidationResult:
-        """yfinance 로 ticker 유효성을 확인 (UC-06 §4단계).
-
-        - yfinance 미설치 환경에서는 ``is_valid=False`` 반환 + error 메시지.
-        - 호출 실패/빈 응답 시 ``is_valid=False``.
-        """
+        """yfinance 로 종목 유효성 확인 (UC-06)."""
         normalized_code = self.validate_stock_code(stock_code)
         normalized_market = self.normalize_market(market)
-        suffix = ".KS" if normalized_market == "KOSPI" else ".KQ"
-        yahoo_symbol = f"{normalized_code}{suffix}"
+        yahoo_symbol = f"{normalized_code}.KS"
+        if normalized_market == "KOSDAQ":
+            yahoo_symbol = f"{normalized_code}.KQ"
 
-        try:
-            import yfinance as yf  # type: ignore
-        except ImportError:
+        from ..collector.market_data import validate_stock_code as validate_yf
+
+        ok, err = validate_yf(normalized_code, market=normalized_market)
+        if not ok:
             return StockValidationResult(
                 is_valid=False,
                 yahoo_symbol=yahoo_symbol,
-                error="yfinance 패키지가 설치되어 있지 않습니다.",
+                error=err or "yfinance 검증 실패",
             )
-
-        try:
-            ticker = yf.Ticker(yahoo_symbol)
-            history = ticker.history(period="5d", auto_adjust=False)
-        except Exception as exc:  # pylint: disable=broad-except
-            return StockValidationResult(
-                is_valid=False,
-                yahoo_symbol=yahoo_symbol,
-                error=f"yfinance 호출 실패: {exc}",
-            )
-
-        if history is None or history.empty:
-            return StockValidationResult(
-                is_valid=False,
-                yahoo_symbol=yahoo_symbol,
-                error="yfinance 응답이 비어 있습니다 (유효하지 않은 코드).",
-            )
-
-        info: Dict[str, Any] = {}
-        try:
-            ticker_info = getattr(ticker, "info", None)
-            if isinstance(ticker_info, dict):
-                info = {
-                    "longName": ticker_info.get("longName"),
-                    "shortName": ticker_info.get("shortName"),
-                    "exchange": ticker_info.get("exchange"),
-                }
-        except Exception:  # pylint: disable=broad-except
-            info = {}
-
-        return StockValidationResult(
-            is_valid=True,
-            yahoo_symbol=yahoo_symbol,
-            info=info,
-        )
+        return StockValidationResult(is_valid=True, yahoo_symbol=yahoo_symbol)
 
     # ------------------------------------------------------------------ CRUD
     def list_stocks(self, *, include_inactive: bool = False) -> List[Dict[str, Any]]:

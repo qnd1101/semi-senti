@@ -2,7 +2,7 @@
 
 검증 범위
 ---------
-1. 필수 디렉터리 존재 여부 (`/collector`, `/engine`, `/dashboard`, `/admin`, `/db`)
+1. 필수 디렉터리 존재 여부 (`/collector`, `/engine`, `/admin`, `/db`)
 2. ``db/semisenti.db`` 파일 생성 및 4개 핵심 테이블(Stocks, Financials, News, Signals)
    스키마 정상 빌드
 3. ``DBControl`` 의 INSERT / SELECT / UPDATE / UPSERT / DELETE / TRANSACTION 동작
@@ -70,7 +70,6 @@ from semi_senti.db.init_db import DatabaseInitError  # noqa: E402
 REQUIRED_MODULE_DIRS: Tuple[str, ...] = (
     "collector",
     "engine",
-    "dashboard",
     "admin",
     "db",
 )

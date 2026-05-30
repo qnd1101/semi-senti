@@ -2,7 +2,7 @@
 
 사용자·운영자가 읽는 **변경 이력**이다. [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 형식을 따른다.
 
-- **버전:** 기능 단위 완료 시 `web/package.json`의 `version`과 맞추거나, 백엔드만 변경이면 패치(`x.y.z`)만 올린다.
+- **버전:** 백엔드 변경 시 `pyproject.toml` 패치(`x.y.z`)를 올린다.
 - **작성 시점:** Task·기능 단위 완료 후 **커밋 직전** (`.cursor/rules/dev-workflow-docs-and-git.mdc` 참고).
 - **항목:** Task ID(`T-xxx`)·PRD 기능 ID가 있으면 괄호로 표기.
 
@@ -10,23 +10,51 @@
 
 ## [Unreleased]
 
-### Added
+### Added (PRD v1.2 구현)
 
-- `bootstrap` 명령 및 모듈 (`src/semi_senti/bootstrap.py`) — DB 시딩 + 기본 종목 등록 + 수집·분석 일괄 실행. `python -m semi_senti bootstrap` 또는 `run.bat`/`run.sh`로 원클릭 데모 준비
-- DART corp_code 자동 조회 기능 (`src/semi_senti/collector/dart_corp.py`) — Open DART API로 전체 종목 매핑 다운로드 + 로컬 캐시(`db/cache/dart_corp_codes.json`). `collect --source dart` 실행 시 `--corp-code` 생략 가능
-- 기본 종목 정의 모듈 (`src/semi_senti/data/default_stocks.py`) — 삼성전자·SK하이닉스 메타데이터 (corp_code, news_query) 중앙 관리
-- Cursor 규칙: Karpathy 행동 가이드라인 (`.cursor/rules/karpathy-guidelines.mdc`) — 단순성 우선, 수술적 변경, 목표 기반 실행 원칙
+- **PostgreSQL 전환** — SQLite 완전 제거, psycopg2 기반 `DBControl` 재작성 (F-1.3, §4.2)
+- **pykrx 주가 수집** — yfinance → pykrx (KRX·네이버 기반, API 키 불필요, 약 3,000거래일) (F-1.1.2)
+- **다중 관점 시그널 (SHORT/MID/LONG)** — PRD §F-3.2 가중치 모델 구현 (±25pt 임계, signals.perspective 컬럼) (T-022~T-024)
+- **Gemini API Reasoning** — `engine/reasoning.py` 신규, `reasonings` 테이블, 폴백 템플릿 지원 (F-3.3)
+- **GET /api/snapshot/{code}** — 종목 전체 스냅샷 (가격·재무·감성·3관점시그널·근거·사이클) (F-4.1~F-4.3)
+- **Next.js 14 대시보드 재구축** — `web/` 신규, Shadcn UI + TradingView Lightweight Charts + 1화면 레이아웃 (F-4.1~F-4.3)
+- Claude 스타일 다크 테마 (Zinc-950, glass-card, 시맨틱 시그널 컬러 BUY/SELL/HOLD)
+- 자동 갱신 60초 (NEXT_PUBLIC_AUTO_REFRESH_SECONDS)
 
 ### Changed
 
+- `db/schema.py` — PostgreSQL DDL, signals 테이블 perspective 컬럼 추가, reasonings 테이블 신규
+- `settings.py` — `database_url` (PostgreSQL DSN), `gemini_api_key`, `pykrx_date_from`, 다중 관점 임계값 추가
+- `.env.example` — PostgreSQL·Gemini·pykrx 설정 추가
+- `run_windows.bat` — Next.js 대시보드 동시 실행 지원
+- `requirements.txt` — psycopg2-binary, pykrx, google-generativeai 추가
+
+---
+
+### Added (구 이력)
+
+- 기본 종목(삼성전자·SK하이닉스) 자동 등록 — `/api/stocks` 조회 시 DB가 비어 있으면 Python API로 등록
+- 종목 선택 시 **on-demand 수집** — DB에 주가·재무가 없으면 `/api/snapshot`이 Python `/api/sync/{code}` 호출 후 표시
+- 주가 수집 **yfinance → pykrx** (KRX·네이버, API 키 불필요)
+- 기동 시 **전체 일봉** `financials` 적재 (`collect_full_history_and_store`, 약 3,000일)
+- 차트: 일·주·월·년 (분봉 제거 — pykrx 미제공)
+- `run_windows.bat` / `run_linux.sh` — Next.js와 함께 Python API(포트 8000) 자동 기동
+
+### Changed
+
+- 주가 수집 **pykrx → yfinance** 복귀 (Yahoo Finance `005930.KS` 형식, API 키 불필요)
+- `db_seed.py` — 더미 financials 제거, 스키마·기본 종목 등록만 수행 (실데이터는 API 파이프라인)
+- `manual_refresh` — DART 재무 수집 단계 추가
+- `.env` — `PRICE_POLL_INTERVAL_SECONDS`, `LIVE_DATA_ENABLED` 설정 추가
+- `web/.env.local.example` — 대시보드 자동 갱신 기본 60초
 - DART 재무 수집기 개선 — 주식총수 조회(`stockTotqy` API), 재무 데이터 기반 PER/PBR 자동 계산 (지수 API 빈 응답 대응)
 - DB 파일명 통일 — `db/semi_senti.sqlite` → `db/semisenti.db` (README, 웹 설정 예시 반영)
 - `scripts/seed_demo_data.py` 간소화 — bootstrap 모듈 래퍼로 재작성 (중복 제거)
-- `db_seed.py` 완료 메시지 — bootstrap 명령 안내로 변경
-
-### Fixed
 
 ### Removed
+
+- **모든 UI** — `web/`(Next.js), `src/semi_senti/dashboard/`(Streamlit), `dashboard` CLI 서브커맨드, Streamlit 의존성
+- `db_seed.py` 더미 financials 시딩 (가짜 주가·재무 데이터)
 
 ### Deprecated
 

@@ -26,7 +26,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-# Python build artifact directory at repo root only (avoid eating web/lib/).
+# Python build artifact directory at repo root only.
 /lib/
 /lib64/
 parts/

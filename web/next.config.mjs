@@ -1,15 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ["sql.js"],
-  },
   async rewrites() {
-    const pythonApi = process.env.PYTHON_API_URL || "http://127.0.0.1:8000";
     return [
       {
         source: "/py-api/:path*",
-        destination: `${pythonApi}/api/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001"}/:path*`,
       },
     ];
   },

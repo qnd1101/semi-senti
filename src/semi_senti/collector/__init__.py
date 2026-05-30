@@ -25,6 +25,11 @@ from .dart import DartFinancialCollector
 from .dart_corp import DartCorpCodeResolver, resolve_corp_code
 from .news import NaverNewsCollector
 from .normalizer import DataNormalizer
+from .market_data import (
+    CHART_INTERVALS,
+    fetch_chart_candles,
+    list_chart_intervals,
+)
 from .price import PriceCollector
 
 __all__ = [
@@ -37,4 +42,7 @@ __all__ = [
     "resolve_corp_code",
     "PriceCollector",
     "NaverNewsCollector",
+    "CHART_INTERVALS",
+    "fetch_chart_candles",
+    "list_chart_intervals",
 ]
