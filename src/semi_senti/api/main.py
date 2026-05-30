@@ -307,10 +307,10 @@ async def snapshot(stock_code: str, run_reasoning: bool = False) -> Dict[str, An
 
 
 @app.get("/api/stocks")
-async def list_stocks():
+async def list_stocks(include_inactive: bool = False):
     try:
         with StockAdmin() as admin:
-            stocks = admin.list_stocks(include_inactive=True)
+            stocks = admin.list_stocks(include_inactive=include_inactive)
         return stocks
     except StockAdminError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -337,6 +337,50 @@ async def toggle_stock(req: StockToggleRequest):
         with StockAdmin() as admin:
             admin.update_stock(stock_code=req.stock_code, is_active=req.is_active)
         return {"stock_code": req.stock_code, "is_active": req.is_active}
+    except StockAdminError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/stocks/{stock_code}")
+async def get_stock(stock_code: str):
+    try:
+        with DBControl() as db:
+            row = db.fetch_one(
+                "SELECT stock_code, name, market, is_active, created_at, updated_at "
+                "FROM stocks WHERE stock_code = %s",
+                (stock_code,),
+            )
+        if not row:
+            raise HTTPException(status_code=404, detail=f"종목 없음: {stock_code}")
+        return row
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class StockUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    market: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@app.patch("/api/stocks/{stock_code}")
+async def update_stock(stock_code: str, req: StockUpdateRequest):
+    try:
+        with StockAdmin() as admin:
+            admin.update_stock(
+                stock_code=stock_code,
+                name=req.name,
+                market=req.market,
+                is_active=req.is_active,
+            )
+        with DBControl() as db:
+            row = db.fetch_one(
+                "SELECT stock_code, name, market, is_active FROM stocks WHERE stock_code = %s",
+                (stock_code,),
+            )
+        return row
     except StockAdminError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

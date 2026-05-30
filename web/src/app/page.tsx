@@ -7,6 +7,7 @@ import { SentimentGauge } from "@/components/dashboard/SentimentGauge";
 import { SignalCard } from "@/components/dashboard/SignalCard";
 import { SignalChart, INTERVAL_OPTIONS } from "@/components/dashboard/SignalChart";
 import { fetchCandles, fetchSnapshot, fetchStocks } from "@/lib/api";
+import Link from "next/link";
 import type { CandleData, DashboardSnapshot } from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -95,6 +96,12 @@ export default function Home() {
         <span className="font-semibold text-sm">Semi Senti</span>
         <span className="text-xs text-zinc-500">반도체 감성 분석 대시보드</span>
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/admin"
+            className="text-xs px-2 py-1 border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 rounded transition"
+          >
+            관리자
+          </Link>
           {/* 종목 선택 */}
           <select
             className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none"

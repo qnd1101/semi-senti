@@ -117,3 +117,45 @@ export interface ChartCandles {
   first_date: string | null;
   last_date: string | null;
 }
+
+// ── Admin types ──────────────────────────────────────────────
+
+export interface StockRow {
+  stock_code: string;
+  name: string;
+  market: string;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface StockStatusSummary {
+  stock_code: string;
+  name: string;
+  market: string | null;
+  is_active: boolean;
+  last_price_at: string | null;
+  last_news_at: string | null;
+  last_signal_at: string | null;
+  last_sentiment_date: string | null;
+  signal_count: number;
+  news_count: number;
+}
+
+export interface SystemStatus {
+  generated_at: string;
+  db: string;
+  table_counts: Record<string, number>;
+  failed_notifications: number;
+  stocks: StockStatusSummary[];
+  warnings: string[];
+}
+
+export interface RefreshResult {
+  stock_code: string;
+  started_at: string;
+  finished_at: string;
+  ok: boolean;
+  steps: Record<string, { ok: boolean; rows?: number; error?: string; score?: number; phase?: string }>;
+  errors: string[];
+}

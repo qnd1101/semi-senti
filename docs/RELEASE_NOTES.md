@@ -10,6 +10,17 @@
 
 ## [Unreleased]
 
+### Added (T-046 관리자 페이지)
+
+- **Next.js `/admin` 관리자 페이지** — 종목 관리 탭 + 시스템 상태 탭 (T-046)
+  - 종목 테이블: 추가·활성/비활성 토글·수동 갱신·삭제
+  - 시스템 상태: 테이블 행 수, 종목별 데이터 신선도 (주가·뉴스·시그널·감성)
+- **FastAPI 관리자 엔드포인트 보강**
+  - `GET /api/stocks?include_inactive=true` — 비활성 종목 포함 조회
+  - `GET /api/stocks/{code}` — 개별 종목 조회
+  - `PATCH /api/stocks/{code}` — 종목 메타 수정 (name/market/is_active)
+- 백엔드 SQL 플레이스홀더 수정 (`?` → `%s`, `is_active = 1` → `is_active = TRUE`)
+
 ### Added (PRD v1.2 구현)
 
 - **PostgreSQL 전환** — SQLite 완전 제거, psycopg2 기반 `DBControl` 재작성 (F-1.3, §4.2)

@@ -140,19 +140,19 @@ class SystemMonitor:
     def _summarize_stock(self, row: Dict[str, Any]) -> StockStatusSummary:
         code = row["stock_code"]
         last_price = self._fetch_one(
-            "SELECT MAX(updated_at) AS at FROM financials WHERE stock_code = ?",
+            "SELECT MAX(updated_at) AS at FROM financials WHERE stock_code = %s",
             (code,),
         )
         last_news = self._fetch_one(
-            "SELECT MAX(collected_at) AS at, COUNT(*) AS cnt FROM news WHERE stock_code = ?",
+            "SELECT MAX(collected_at) AS at, COUNT(*) AS cnt FROM news WHERE stock_code = %s",
             (code,),
         )
         last_signal = self._fetch_one(
-            "SELECT MAX(signaled_at) AS at, COUNT(*) AS cnt FROM signals WHERE stock_code = ?",
+            "SELECT MAX(signaled_at) AS at, COUNT(*) AS cnt FROM signals WHERE stock_code = %s",
             (code,),
         )
         last_sent = self._fetch_one(
-            "SELECT MAX(score_date) AS at FROM sentiment_scores WHERE stock_code = ?",
+            "SELECT MAX(score_date) AS at FROM sentiment_scores WHERE stock_code = %s",
             (code,),
         )
         return StockStatusSummary(

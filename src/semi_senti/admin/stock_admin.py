@@ -131,7 +131,7 @@ class StockAdmin:
         )
         params: tuple = ()
         if not include_inactive:
-            sql += "WHERE is_active = 1 "
+            sql += "WHERE is_active = TRUE "
         sql += "ORDER BY name ASC"
         try:
             return self.db().fetch_all(sql, params)
@@ -181,7 +181,7 @@ class StockAdmin:
             raise StockAdminError(f"종목 등록 실패: {exc}") from exc
 
         row = self.db().fetch_one(
-            "SELECT stock_code, name, market, is_active FROM stocks WHERE stock_code = ?",
+            "SELECT stock_code, name, market, is_active FROM stocks WHERE stock_code = %s",
             (normalized_code,),
         )
         _LOGGER.info("종목 등록: %s (%s)", name, normalized_code)
@@ -212,7 +212,7 @@ class StockAdmin:
 
         try:
             affected = self.db().update(
-                "stocks", data, where="stock_code = ?", where_params=(normalized_code,)
+                "stocks", data, where="stock_code = %s", where_params=(normalized_code,)
             )
         except DBControlError as exc:
             raise StockAdminError(f"종목 갱신 실패: {exc}") from exc
@@ -235,7 +235,7 @@ class StockAdmin:
             return self.deactivate_stock(normalized_code)
         try:
             affected = self.db().delete(
-                "stocks", where="stock_code = ?", where_params=(normalized_code,)
+                "stocks", where="stock_code = %s", where_params=(normalized_code,)
             )
         except DBControlError as exc:
             raise StockAdminError(f"종목 삭제 실패: {exc}") from exc
