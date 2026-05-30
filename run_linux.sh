@@ -1,219 +1,92 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Semi Senti — Linux/macOS 1-Click Launcher
+# Semi Senti — Linux/macOS Launcher (PRD v1.2)
 # =============================================================================
-# 이 스크립트는 다음 작업을 자동으로 수행합니다:
-#   1. OS 및 셸 환경 확인
-#   2. Python/Node.js/JDK 환경 확인
-#   3. Python 가상환경 생성 및 활성화 (없으면 자동 생성)
-#   4. Python 의존성 설치 (requirements.txt)
-#   5. .env 파일 존재 확인 및 샘플 복사
-#   6. Next.js 의존성 설치 (web/node_modules)
-#   7. Next.js 개발 서버 시작 (http://localhost:3000)
-#   8. 브라우저 자동 오픈
-#
-# 요구사항:
-#   - Python 3.12 (필수)
-#   - JDK 1.8+
-#   - Node.js 20 LTS
-#   - npm 9+
+#   1. Python/JDK/Node.js 확인
+#   2. 가상환경 + requirements.txt (psycopg2-binary, pykrx 포함)
+#   3. .env 확인 (DATABASE_URL 필수)
+#   4. DB 초기화 (db_seed.py)
+#   5. FastAPI 시작 (http://localhost:8001)
+#   6. Next.js 대시보드 (http://localhost:3000)
 #
 # 사용법:
-#   chmod +x run_linux.sh   # 실행 권한 부여 (최초 1회)
-#   ./run_linux.sh          # 실행
-#   ./run_linux.sh --bg     # 백그라운드 실행 (옵션)
+#   chmod +x run_linux.sh
+#   ./run_linux.sh
+#   ./run_linux.sh --bg    # 백그라운드 (api.log)
+#
+# 사전 요구사항: Python 3.12, JDK 1.8+, Node.js 20+, PostgreSQL 15+
 # =============================================================================
 
-set -e  # 오류 발생 시 즉시 종료
+set -e
 
-# 색상 정의 (터미널 출력용)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# 로그 함수
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 
-log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# 배너 출력
 echo ""
 echo "===================================================================="
-echo "  Semi Senti — Linux/macOS 1-Click Launcher"
+echo "  Semi Senti — Linux/macOS Launcher (PRD v1.2)"
 echo "===================================================================="
 echo ""
 
-# -----------------------------------------------------------------------------
-# 0. OS 및 권한 확인
-# -----------------------------------------------------------------------------
+log_info "[1/6] Checking environment..."
 
-log_info "[0/7] Checking OS and permissions..."
-
-# OS 종류 확인
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    OS="Linux"
-    OPEN_CMD="xdg-open"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    OS="macOS"
-    OPEN_CMD="open"
-else
-    log_warning "Unknown OS: $OSTYPE"
-    OS="Unknown"
-    OPEN_CMD="echo"
-fi
-log_success "Detected OS: $OS"
-
-# 실행 권한 확인
-if [[ ! -x "$0" ]]; then
-    log_warning "This script is not executable."
-    log_info "Run: chmod +x $0"
-    exit 1
-fi
-
-echo ""
-
-# -----------------------------------------------------------------------------
-# 1. 환경 확인 (Python / Node.js / JDK)
-# -----------------------------------------------------------------------------
-
-log_info "[1/7] Checking environment..."
-
-# Python 3.12 확인
 if ! command -v python3.12 &> /dev/null; then
     log_error "Python 3.12 is not installed or not in PATH."
-    log_info "Install Python 3.12 from: https://www.python.org/downloads/"
-    log_info ""
-    log_info "On Ubuntu/Debian:"
-    log_info "  sudo apt update && sudo apt install python3.12 python3.12-venv"
-    log_info "On macOS (with Homebrew):"
-    log_info "  brew install python@3.12"
     exit 1
 fi
-PYTHON_VERSION=$(python3.12 --version | awk '{print $2}')
-log_success "Python $PYTHON_VERSION found."
+log_success "Python $(python3.12 --version | awk '{print $2}') found."
 
-# Node.js 확인
-if ! command -v node &> /dev/null; then
-    log_error "Node.js is not installed or not in PATH."
-    log_info "Install Node.js 20 LTS from: https://nodejs.org/"
-    exit 1
-fi
-NODE_VERSION=$(node --version)
-log_success "Node.js $NODE_VERSION found."
-
-# npm 확인
-if ! command -v npm &> /dev/null; then
-    log_error "npm is not installed or not in PATH."
-    exit 1
-fi
-NPM_VERSION=$(npm --version)
-log_success "npm $NPM_VERSION found."
-
-# JDK 확인 (KoNLPy 필수)
 if ! command -v java &> /dev/null; then
-    log_warning "Java (JDK) is not installed or not in PATH."
-    log_warning "JDK 1.8+ is required for KoNLPy (NLP engine)."
-    log_info "Download from: https://adoptium.net/"
-    echo ""
-    read -p "Continue anyway? (NLP features will not work) [y/N]: " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    log_warning "JDK not found. KoNLPy NLP will not work."
 else
-    JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-    log_success "Java $JAVA_VERSION found."
+    log_success "Java found."
+fi
+
+NO_NODE=false
+if ! command -v node &> /dev/null; then
+    log_warning "Node.js not found. Web dashboard will not start."
+    NO_NODE=true
+else
+    log_success "Node.js $(node --version) found."
 fi
 
 echo ""
 
-# -----------------------------------------------------------------------------
-# 2. Python 가상환경 생성 및 활성화
-# -----------------------------------------------------------------------------
+log_info "[2/6] Setting up Python virtual environment..."
 
-log_info "[2/7] Setting up Python virtual environment..."
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
 
 if [[ ! -d ".venv" ]]; then
-    log_info "Creating new virtual environment with Python 3.12..."
     python3.12 -m venv .venv
-    log_success "Virtual environment created with Python 3.12."
+    log_success "Virtual environment created."
 else
-    log_success "Virtual environment already exists."
+    log_success "Virtual environment exists."
 fi
 
-# 가상환경 활성화
 source .venv/bin/activate
-if [[ $? -ne 0 ]]; then
-    log_error "Failed to activate virtual environment."
-    exit 1
-fi
-log_success "Virtual environment activated."
-
-echo ""
-
-# -----------------------------------------------------------------------------
-# 3. Python 의존성 설치
-# -----------------------------------------------------------------------------
-
-log_info "[3/7] Installing Python dependencies..."
-
-if [[ ! -f "requirements.txt" ]]; then
-    log_error "requirements.txt not found in project root."
-    exit 1
-fi
-
-# pip 업그레이드 (가상환경 내 python 사용)
 python -m pip install --upgrade pip --quiet
-
-# 의존성 설치
 pip install -r requirements.txt --quiet
-if [[ $? -ne 0 ]]; then
-    log_error "Failed to install Python dependencies."
-    exit 1
-fi
-log_success "Python dependencies installed."
+log_success "Python dependencies installed (psycopg2-binary, pykrx included)."
 
 echo ""
 
-# -----------------------------------------------------------------------------
-# 4. .env 파일 확인 및 샘플 복사
-# -----------------------------------------------------------------------------
-
-log_info "[4/7] Checking environment configuration..."
+log_info "[3/6] Checking .env..."
 
 if [[ ! -f ".env" ]]; then
     if [[ -f ".env.example" ]]; then
-        log_info ".env file not found. Copying from .env.example..."
         cp .env.example .env
-        log_warning "Please edit .env file and add your API keys:"
-        log_warning "  - OPEN_DART_API_KEY"
-        log_warning "  - NAVER_CLIENT_ID"
-        log_warning "  - NAVER_CLIENT_SECRET"
-        echo ""
-        log_info "Opening .env file in default editor..."
-        ${EDITOR:-nano} .env
-        echo ""
-        read -p "Continue after editing .env? [Y/n]: " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Nn]$ ]]; then
-            exit 1
-        fi
+        log_warning ".env created from .env.example — edit DATABASE_URL and API keys before use!"
     else
-        log_error ".env.example not found. Cannot create .env file."
+        log_error ".env.example not found."
         exit 1
     fi
 else
@@ -222,110 +95,69 @@ fi
 
 echo ""
 
-# -----------------------------------------------------------------------------
-# 5. Next.js 프론트엔드 의존성 설치
-# -----------------------------------------------------------------------------
+log_info "[4/6] Initializing database (PostgreSQL)..."
 
-log_info "[5/7] Installing Next.js dependencies..."
-
-if [[ ! -d "web" ]]; then
-    log_error "web/ directory not found."
-    exit 1
-fi
-
-cd web
-
-# web/.env.local 확인 및 샘플 복사
-if [[ ! -f ".env.local" ]]; then
-    if [[ -f ".env.local.example" ]]; then
-        log_info ".env.local not found. Copying from .env.local.example..."
-        cp .env.local.example .env.local
-        log_success "web/.env.local created."
-    else
-        log_warning "web/.env.local.example not found."
-    fi
-else
-    log_success "web/.env.local exists."
-fi
-
-# node_modules 확인 및 설치
-if [[ ! -d "node_modules" ]]; then
-    log_info "Installing Next.js dependencies (this may take a few minutes)..."
-    npm install
-    if [[ $? -ne 0 ]]; then
-        log_error "Failed to install Next.js dependencies."
-        cd ..
-        exit 1
-    fi
-    log_success "Next.js dependencies installed."
-else
-    log_success "node_modules already exists. Skipping npm install."
-    log_info "(Run 'npm install' manually in web/ to update dependencies)"
-fi
-
-cd ..
+python db_seed.py || log_warning "db_seed.py failed. Check DATABASE_URL in .env."
 
 echo ""
 
-# -----------------------------------------------------------------------------
-# 6. 포트 충돌 확인
-# -----------------------------------------------------------------------------
-
-log_info "[6/7] Checking port availability..."
-
-# 포트 3000 사용 중인지 확인
-if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
-    log_warning "Port 3000 is already in use."
-    log_info "Kill process: lsof -ti:3000 | xargs kill -9"
-    echo ""
-    read -p "Continue anyway? (May fail to start) [y/N]: " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
-else
-    log_success "Port 3000 is available."
-fi
-
-echo ""
-
-# -----------------------------------------------------------------------------
-# 7. Next.js 개발 서버 시작
-# -----------------------------------------------------------------------------
-
-log_info "[7/7] Starting Next.js development server..."
-echo ""
-echo "===================================================================="
-echo "  Server starting at http://localhost:3000"
-echo "  Press Ctrl+C to stop the server."
-echo "===================================================================="
-echo ""
-
-# 백그라운드 실행 옵션
+API_PORT="${API_PORT:-8001}"
 BACKGROUND=false
 if [[ "$1" == "--bg" || "$1" == "-b" ]]; then
     BACKGROUND=true
-    log_info "Running in background mode..."
 fi
 
-# 브라우저 자동 오픈 (5초 후)
-(sleep 5 && $OPEN_CMD http://localhost:3000) &
+log_info "[5/6] Starting FastAPI (http://localhost:${API_PORT})..."
 
-# Next.js 개발 서버 시작
-cd web
-if [[ "$BACKGROUND" == true ]]; then
-    # 백그라운드 실행
-    nohup npm run dev > ../server.log 2>&1 &
-    PID=$!
-    log_success "Server started in background (PID: $PID)"
-    log_info "Logs: tail -f server.log"
-    log_info "Stop: kill $PID"
+if lsof -Pi :"${API_PORT}" -sTCP:LISTEN -t >/dev/null 2>&1 ; then
+    log_warning "Port ${API_PORT} is already in use — skipping API start."
 else
-    # 포그라운드 실행
-    npm run dev
+    if [[ "$BACKGROUND" == true ]]; then
+        API_PORT="${API_PORT}" nohup python -m semi_senti.api > api.log 2>&1 &
+        log_success "FastAPI started in background (log: api.log)"
+        sleep 2
+    else
+        API_PORT="${API_PORT}" python -m semi_senti.api &
+        API_PID=$!
+        log_success "FastAPI starting (PID: $API_PID)"
+        sleep 2
+    fi
 fi
 
-# 서버 종료 시
-cd ..
 echo ""
-log_info "Server stopped."
+
+if [[ "$NO_NODE" == false ]]; then
+    log_info "[6/6] Starting Next.js dashboard (http://localhost:3000)..."
+    if [[ -f "web/package.json" ]]; then
+        cd web
+        if [[ ! -d "node_modules" ]]; then
+            npm install --quiet
+        fi
+        if [[ "$BACKGROUND" == true ]]; then
+            nohup npm run dev > ../web.log 2>&1 &
+            log_success "Next.js started in background (log: web.log)"
+        else
+            npm run dev &
+            WEB_PID=$!
+            log_success "Next.js starting (PID: $WEB_PID)"
+        fi
+        cd "$ROOT"
+    else
+        log_warning "web/package.json not found. Skipping web dashboard."
+    fi
+else
+    log_info "[6/6] Skipping Next.js (Node.js not found)."
+fi
+
+echo ""
+echo "===================================================================="
+echo "  Services:"
+echo "  - FastAPI:    http://localhost:${API_PORT}"
+echo "  - API Docs:   http://localhost:${API_PORT}/docs"
+echo "  - Dashboard:  http://localhost:3000"
+echo "===================================================================="
+echo ""
+
+if [[ "$BACKGROUND" == false ]]; then
+    wait
+fi
