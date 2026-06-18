@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Mapping, Optional, TypeVar
 
 from ..config import Settings, get_settings
@@ -96,6 +96,11 @@ class BaseCollector(ABC):
         """
         if not stock_code:
             raise CollectorError("ensure_stock: stock_code 는 필수입니다.")
+        # 이미 등록된 종목인데 name 이 명시되지 않았으면 기존 종목명을 보존한다.
+        if (not name or name == stock_code) and self.db().fetch_one(
+            "SELECT 1 FROM stocks WHERE stock_code = %s", (stock_code,)
+        ):
+            return
         data = {"stock_code": stock_code, "name": name or stock_code}
         if market:
             data["market"] = market
@@ -109,11 +114,17 @@ class BaseCollector(ABC):
         """SQLite 의 ``datetime('now')`` 또는 ISO 문자열을 파싱."""
         if not value:
             return None
-        try:
-            # SQLite 기본 포맷: 'YYYY-MM-DD HH:MM:SS' (UTC). 'T' 구분자도 허용.
-            return datetime.fromisoformat(value.replace("T", " ").split(".")[0])
-        except (ValueError, AttributeError):
-            return None
+        if isinstance(value, datetime):
+            dt = value
+        else:
+            try:
+                # SQLite 기본 포맷: 'YYYY-MM-DD HH:MM:SS' (UTC). 'T' 구분자도 허용.
+                dt = datetime.fromisoformat(str(value).replace("T", " ").split(".")[0])
+            except (ValueError, AttributeError, TypeError):
+                return None
+        if getattr(dt, "tzinfo", None) is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
 
     @classmethod
     def _is_cache_fresh(

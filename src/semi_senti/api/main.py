@@ -21,6 +21,8 @@ from ..admin import StockAdmin, StockAdminError, SystemMonitor
 from ..collector import CollectorError, PriceCollector, fetch_chart_candles, list_chart_intervals
 from ..config import get_settings
 from ..data.default_stocks import get_default_stock
+from ..data.sector_universe import SEMICONDUCTOR_UNIVERSE
+from .screener import OrderKey, ScreenerRow, SortKey, period_return, sort_screener_items
 from ..db import DBControl
 from ..engine import ReasoningEngine, SignalLogic
 from ..pipeline import get_live_pipeline, start_live_pipeline, stop_live_pipeline
@@ -432,6 +434,49 @@ async def system_status():
 # ────────────────────────── Chart OHLCV ──────────────────────────
 
 
+@app.get("/api/news/{stock_code}")
+async def get_news(stock_code: str, limit: int = 100, days: int = 30) -> Dict[str, Any]:
+    """종목 뉴스 기사 목록 (감성 방향 포함)."""
+    if not stock_code.isdigit() or len(stock_code) != 6:
+        raise HTTPException(status_code=400, detail="invalid stock_code")
+    _sel = "SELECT title, summary, url, published_at, sentiment_score FROM news WHERE stock_code = %s "
+    with DBControl() as db:
+        if days and days > 0:
+            rows = db.fetch_all(
+                _sel + "AND published_at >= (now() - make_interval(days => %s)) "
+                "ORDER BY published_at DESC",
+                (stock_code, days),
+            )
+            if not rows:  # 해당 기간 기사가 없으면 최근 20건으로 폴백 (빈 화면 방지)
+                rows = db.fetch_all(
+                    _sel + "ORDER BY published_at DESC LIMIT %s", (stock_code, min(limit, 20)),
+                )
+        else:
+            rows = db.fetch_all(
+                _sel + "ORDER BY published_at DESC LIMIT %s", (stock_code, limit),
+            )
+    items = []
+    analyzed = 0
+    for r in rows:
+        sc = r.get("sentiment_score")
+        if sc is None:
+            direction = "neutral"
+        else:
+            analyzed += 1
+            direction = "positive" if sc > 20 else ("negative" if sc < -20 else "neutral")
+        pub = r.get("published_at")
+        items.append({
+            "title": r.get("title") or "",
+            "summary": r.get("summary") or "",
+            "source": "naver_news",
+            "url": r.get("url") or "",
+            "published_at": pub.isoformat() if hasattr(pub, "isoformat") else (str(pub) if pub else ""),
+            "sentiment_direction": direction,
+            "keywords": [],
+        })
+    return {"stock_code": stock_code, "analyzed_count": analyzed, "items": items}
+
+
 @app.get("/api/chart/intervals")
 async def chart_intervals():
     return {"intervals": list_chart_intervals()}
@@ -490,6 +535,142 @@ async def sync_stock(stock_code: str, force: bool = False):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ──────────────────────────── Screener (반도체 유니버스) ────────────────────────────
+
+
+@app.get("/api/screener/semiconductor", response_model=list[ScreenerRow])
+async def screener_semiconductor(
+    sort: SortKey = "change",
+    order: OrderKey = "desc",
+) -> list[ScreenerRow]:
+    """반도체 유니버스 15종목 스크리너.
+
+    각 종목에 대해 financials 일봉으로 다음을 계산:
+    - price: 최신 종가
+    - change_pct: 전일대비 수익률(%)
+    - volume: 최신 거래량
+    - return_1w/1m/1y: 달력일 기준 1주·1개월·1년 수익률(%)
+    - is_tracked: stocks.is_active == 1
+
+    외부 API 호출 없이 DB 만 사용.
+    """
+    codes = [code for code, _ in SEMICONDUCTOR_UNIVERSE]
+
+    placeholders = ", ".join(["%s"] * len(codes))
+
+    try:
+        with DBControl() as db:
+            # 종목별 is_active 조회
+            active_rows = db.fetch_all(
+                f"SELECT stock_code, is_active FROM stocks WHERE stock_code IN ({placeholders})",
+                tuple(codes),
+            )
+            is_active_map: dict[str, bool] = {
+                r["stock_code"]: bool(r["is_active"]) for r in active_rows
+            }
+
+            # 종목별 최신 종가·거래량
+            latest_rows = db.fetch_all(
+                f"""
+                SELECT DISTINCT ON (stock_code)
+                    stock_code, record_date, close_price, volume
+                FROM financials
+                WHERE stock_code IN ({placeholders}) AND close_price IS NOT NULL
+                ORDER BY stock_code, record_date DESC
+                """,
+                tuple(codes),
+            )
+            latest_map: dict[str, dict] = {r["stock_code"]: r for r in latest_rows}
+
+            # 전일 종가 (change_pct 분모)
+            prev_rows = db.fetch_all(
+                f"""
+                SELECT f.stock_code, f.close_price AS prev_close
+                FROM financials f
+                INNER JOIN (
+                    SELECT stock_code, MAX(record_date) AS prev_date
+                    FROM financials
+                    WHERE stock_code IN ({placeholders})
+                      AND close_price IS NOT NULL
+                    GROUP BY stock_code
+                    HAVING COUNT(*) >= 2
+                ) sub ON f.stock_code = sub.stock_code
+                INNER JOIN (
+                    SELECT stock_code, MAX(record_date) AS latest_date
+                    FROM financials
+                    WHERE stock_code IN ({placeholders}) AND close_price IS NOT NULL
+                    GROUP BY stock_code
+                ) mx ON f.stock_code = mx.stock_code
+                WHERE f.record_date = (
+                    SELECT MAX(f2.record_date)
+                    FROM financials f2
+                    WHERE f2.stock_code = f.stock_code
+                      AND f2.close_price IS NOT NULL
+                      AND f2.record_date < mx.latest_date
+                )
+                """,
+                tuple(codes) + tuple(codes),
+            )
+            prev_map: dict[str, float] = {
+                r["stock_code"]: float(r["prev_close"]) for r in prev_rows
+            }
+
+            # 수익률 계산용 전체 이력
+            history_rows = db.fetch_all(
+                f"""
+                SELECT stock_code, record_date, close_price
+                FROM financials
+                WHERE stock_code IN ({placeholders}) AND close_price IS NOT NULL
+                ORDER BY stock_code, record_date
+                """,
+                tuple(codes),
+            )
+
+        # 종목별 이력 분리
+        history_by_code: dict[str, list[dict]] = {code: [] for code in codes}
+        for row in history_rows:
+            code = row["stock_code"]
+            if code in history_by_code:
+                history_by_code[code].append(row)
+
+        items: list[ScreenerRow] = []
+        for code, name in SEMICONDUCTOR_UNIVERSE:
+            latest = latest_map.get(code)
+            hist = history_by_code.get(code, [])
+
+            price: float | None = float(latest["close_price"]) if latest else None
+            volume: int | None = (
+                int(latest["volume"])
+                if latest and latest.get("volume") is not None
+                else None
+            )
+
+            prev_close = prev_map.get(code)
+            change_pct: float | None = None
+            if price is not None and prev_close and prev_close != 0:
+                change_pct = round((price - prev_close) / prev_close * 100, 2)
+
+            items.append(
+                ScreenerRow(
+                    stock_code=code,
+                    name=name,
+                    price=price,
+                    change_pct=change_pct,
+                    volume=volume,
+                    return_1w=period_return(hist, 7),
+                    return_1m=period_return(hist, 30),
+                    return_1y=period_return(hist, 365),
+                    is_tracked=is_active_map.get(code, False),
+                )
+            )
+
+        return sort_screener_items(items, sort=sort, order=order)
+
+    except Exception as exc:
+        _LOGGER.exception("스크리너 조회 실패: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

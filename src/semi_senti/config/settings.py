@@ -1,4 +1,4 @@
-"""환경 변수 기반 런타임 설정.
+﻿"""환경 변수 기반 런타임 설정.
 
 - ``.env`` 파일이 존재하면 자동으로 로드한다(있을 때만, 없으면 무시).
 - 모든 외부 의존 값(API 키·DB 경로·TTL 등)은 환경 변수로만 노출한다.
@@ -173,7 +173,7 @@ class Settings:
         default_factory=lambda: _env_int("SENTIMENT_TOP_KEYWORD_LIMIT", 5)
     )
 
-    band_lookback_days: int = field(default_factory=lambda: _env_int("BAND_LOOKBACK_DAYS", 90))
+    band_lookback_days: int = field(default_factory=lambda: _env_int("BAND_LOOKBACK_DAYS", 250))
     band_margin: float = field(
         default_factory=lambda: float(_env_str("BAND_MARGIN", "0.15"))
     )
@@ -252,3 +252,4 @@ def get_settings() -> Settings:
     바꾼 뒤 본 함수를 다시 호출하면 새로운 값으로 빌드된 객체를 얻을 수 있다.
     """
     return Settings()
+

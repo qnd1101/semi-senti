@@ -131,7 +131,7 @@ class StockAdmin:
         )
         params: tuple = ()
         if not include_inactive:
-            sql += "WHERE is_active = TRUE "
+            sql += "WHERE is_active = 1 "
         sql += "ORDER BY name ASC"
         try:
             return self.db().fetch_all(sql, params)

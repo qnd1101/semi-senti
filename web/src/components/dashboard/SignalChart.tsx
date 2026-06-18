@@ -33,7 +33,7 @@ export function SignalChart({ candles, signals, bandLow, bandHigh }: Props) {
     let candleSeries: unknown;
 
     (async () => {
-      const { createChart, CrosshairMode } = await import("lightweight-charts");
+      const { createChart, CrosshairMode, CandlestickSeries, LineSeries } = await import("lightweight-charts");
       if (!containerRef.current) return;
 
       chart = createChart(containerRef.current, {
@@ -54,7 +54,7 @@ export function SignalChart({ candles, signals, bandLow, bandHigh }: Props) {
       chartRef.current = chart;
 
       // @ts-expect-error lightweight-charts API
-      candleSeries = chart.addCandlestickSeries({
+      candleSeries = chart.addSeries(CandlestickSeries, {
         upColor: "#34d399",
         downColor: "#fb7185",
         borderUpColor: "#34d399",
@@ -77,13 +77,13 @@ export function SignalChart({ candles, signals, bandLow, bandHigh }: Props) {
       // 펀더멘털 밴드 라인
       if (bandLow) {
         // @ts-expect-error lightweight-charts API
-        const lowLine = chart.addLineSeries({ color: "#22c55e55", lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+        const lowLine = chart.addSeries(LineSeries, { color: "#22c55e55", lineWidth: 1, lineStyle: 2, priceLineVisible: false });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (lowLine as any).setData(candles.map((c) => ({ time: c.time, value: bandLow })));
       }
       if (bandHigh) {
         // @ts-expect-error lightweight-charts API
-        const highLine = chart.addLineSeries({ color: "#fb718555", lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+        const highLine = chart.addSeries(LineSeries, { color: "#fb718555", lineWidth: 1, lineStyle: 2, priceLineVisible: false });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (highLine as any).setData(candles.map((c) => ({ time: c.time, value: bandHigh })));
       }

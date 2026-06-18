@@ -1,225 +1,282 @@
-"use client";
+﻿"use client";
 
-import { CyclePanel } from "@/components/dashboard/CyclePanel";
-import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
-import { KeywordTrend } from "@/components/dashboard/KeywordTrend";
-import { SentimentGauge } from "@/components/dashboard/SentimentGauge";
-import { SignalCard } from "@/components/dashboard/SignalCard";
-import { SignalChart, INTERVAL_OPTIONS } from "@/components/dashboard/SignalChart";
-import { fetchCandles, fetchSnapshot, fetchStocks } from "@/lib/api";
-import Link from "next/link";
-import type { CandleData, DashboardSnapshot } from "@/lib/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 
-const AUTO_REFRESH_SEC = parseInt(
-  process.env.NEXT_PUBLIC_AUTO_REFRESH_SECONDS || "60",
-  10
-);
+import { Sidebar, MobileTabBar } from "@/components/dashboard-c/Sidebar";
+import { Screener } from "@/components/dashboard-c/Screener";
+import { TickerSelector } from "@/components/dashboard-c/TickerSelector";
+import { StockHeader } from "@/components/dashboard-c/StockHeader";
+import { SoonToast } from "@/components/dashboard-c/SoonToast";
+
+import { TrafficLightHero } from "@/components/dashboard-c/TrafficLightHero";
+import { WhyCards } from "@/components/dashboard-c/WhyCards";
+import { GapCompare } from "@/components/dashboard-c/GapCompare";
+import { CycleBar } from "@/components/dashboard-c/CycleBar";
+import { HorizonRows } from "@/components/dashboard-c/HorizonRows";
+import { LineChartWithMarkers } from "@/components/dashboard-c/LineChartWithMarkers";
+import { CandleChart } from "@/components/dashboard-c/CandleChart";
+import { EvidenceAccordion } from "@/components/dashboard-c/EvidenceAccordion";
+import { AiReasonings } from "@/components/dashboard-c/AiReasonings";
+
+import { NewsBanner } from "@/components/dashboard-c/NewsBanner";
+import { NewsFilters, type NewsFilter, type NewsDays } from "@/components/dashboard-c/NewsFilters";
+import { NewsList, type NewsState } from "@/components/dashboard-c/NewsList";
+
+import { FinanceCards } from "@/components/dashboard-c/FinanceCards";
+import { FinanceBand } from "@/components/dashboard-c/FinanceBand";
+import { FinanceDisclosure } from "@/components/dashboard-c/FinanceDisclosure";
+
+import { useStocks, useSnapshot, useCandles, useNews } from "@/lib/dashboard-c/hooks";
+import { adaptTickers, adaptSnapshot, adaptNews } from "@/lib/dashboard-c/adapt";
+import { relativeTime } from "@/lib/dashboard-c/format";
+import { C } from "@/lib/dashboard-c/tokens";
+
+// ViewKey 타입 export — Sidebar에서 import 함
+export type ViewKey = "screener" | "home" | "chart" | "news" | "finance";
+
+const NEWS_API_READY = process.env.NEXT_PUBLIC_NEWS_API_READY !== "false";
 
 export default function Home() {
-  const [stocks, setStocks] = useState<{ stock_code: string; name: string }[]>([]);
-  const [selectedCode, setSelectedCode] = useState<string>("");
-  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
-  const [candles, setCandles] = useState<CandleData[]>([]);
-  const [interval, setInterval] = useState("1d");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+  const [view, setView] = useState<ViewKey>("screener");
+  const [activeTicker, setActiveTicker] = useState<string>("");
+  const [newsFilter, setNewsFilter] = useState<NewsFilter>("all");
+  const [newsDays, setNewsDays] = useState<NewsDays>(30);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // 종목 목록 로드
-  useEffect(() => {
-    fetchStocks()
-      .then((list) => {
-        const active = list.filter((s) => s.is_active === 1);
-        setStocks(active);
-        if (active.length) setSelectedCode(active[0].stock_code);
-      })
-      .catch(() => {
-        // 백엔드 연결 실패 시 기본 목록
-        setStocks([
-          { stock_code: "005930", name: "삼성전자" },
-          { stock_code: "000660", name: "SK하이닉스" },
-        ]);
-        setSelectedCode("005930");
-      });
-  }, []);
+  const { data: stockRows } = useStocks();
 
-  const loadData = useCallback(
-    async (code: string, iv: string) => {
-      if (!code) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const [snap, chart] = await Promise.all([
-          fetchSnapshot(code),
-          fetchCandles(code, iv),
-        ]);
-        setSnapshot(snap);
-        setCandles(chart.candles);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "데이터 로드 실패");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
+  const tickers = useMemo(() => (stockRows ? adaptTickers(stockRows) : []), [stockRows]);
+
+  const effectiveTicker = useMemo(() => {
+    if (activeTicker) return activeTicker;
+    const firstReady = tickers.find((t) => t.ready);
+    return firstReady?.ticker ?? "";
+  }, [activeTicker, tickers]);
+
+  const { data: snapshot } = useSnapshot(effectiveTicker || null);
+  const { data: candleRes } = useCandles(effectiveTicker || null);
+  const { data: newsRes, error: newsError, isLoading: newsLoading } = useNews(
+    effectiveTicker || null,
+    NEWS_API_READY,
+    newsDays
   );
 
-  // 종목/봉주기 변경 시 로드
-  useEffect(() => {
-    if (selectedCode) loadData(selectedCode, interval);
-  }, [selectedCode, interval, loadData]);
+  const fallbackName =
+    tickers.find((t) => t.ticker === effectiveTicker)?.name ?? "종목";
 
-  // 자동 갱신
-  useEffect(() => {
-    if (!selectedCode) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = globalThis.setInterval(() => loadData(selectedCode, interval), AUTO_REFRESH_SEC * 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [selectedCode, interval, loadData]);
+  const dashView = useMemo(
+    () => adaptSnapshot(snapshot ?? null, candleRes?.candles ?? [], fallbackName),
+    [snapshot, candleRes, fallbackName]
+  );
 
-  const stock = snapshot?.stock;
-  const sentimentEmpty = {
-    score: null,
-    raw_score: null,
-    news_count: null,
-    score_date: "",
-    top_keywords: null,
-  };
+  const newsView = useMemo(
+    () => adaptNews(newsRes, dashView.sentiScore, relativeTime),
+    [newsRes, dashView.sentiScore]
+  );
+
+  const newsState: NewsState = !NEWS_API_READY
+    ? "pending"
+    : newsLoading
+    ? "loading"
+    : newsError
+    ? "error"
+    : "ready";
+
+  const filteredArticles = useMemo(
+    () =>
+      newsView.articles.filter((n) => (newsFilter === "all" ? true : n.sentiment === newsFilter)),
+    [newsView.articles, newsFilter]
+  );
+
+  const handleSelectTicker = useCallback((ticker: string) => {
+    setActiveTicker(ticker);
+    setNewsFilter("all");
+    setNewsDays(30);
+  }, []);
+
+  // 스크리너 행 클릭 핸들러
+  const handleScreenerSelect = useCallback(
+    (code: string, _name: string, isTracked: boolean) => {
+      handleSelectTicker(code);
+      setView("home");
+      if (!isTracked) {
+        setToast("분석 데이터를 준비하고 있어요. 잠시 후 다시 확인해 주세요.");
+      }
+    },
+    [handleSelectTicker]
+  );
+
+  // 사이드바 종목 클릭 핸들러 (is_tracked 모름 → 그냥 전환)
+  const handleSidebarSelect = useCallback(
+    (code: string) => {
+      handleSelectTicker(code);
+      setView("home");
+    },
+    [handleSelectTicker]
+  );
+
+  const isDetailView = view !== "screener";
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col">
-      {/* Topbar */}
-      <header className="h-12 border-b border-zinc-800/60 flex items-center px-4 gap-4 flex-shrink-0">
-        <span className="font-semibold text-sm">Semi Senti</span>
-        <span className="text-xs text-zinc-500">반도체 감성 분석 대시보드</span>
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/admin"
-            className="text-xs px-2 py-1 border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 rounded transition"
+    <div className="dashboard-bg min-h-screen flex" style={{ color: C.ink }}>
+      {/* ── 데스크톱 사이드바 ── */}
+      <Sidebar
+        view={view}
+        activeTicker={effectiveTicker}
+        onViewChange={setView}
+        onSelectTicker={handleSidebarSelect}
+      />
+
+      {/* ── 메인 영역 ── */}
+      <main className="flex-1 min-w-0 px-5 sm:px-7 pt-7 pb-24 md:pb-16 max-w-[900px]">
+
+        {/* 종목 헤더 — 상세 뷰일 때만 표시 */}
+        {isDetailView && (
+          <header className="rise d1 relative z-50 flex items-center justify-between gap-3 mb-4">
+            <TickerSelector
+              tickers={tickers}
+              active={effectiveTicker}
+              header={dashView.header}
+              onSelect={handleSelectTicker}
+              onSoon={(name) => setToast(`${name}은 데이터 준비 중이에요`)}
+            />
+            <StockHeader header={dashView.header} />
+          </header>
+        )}
+
+        {/* 스크리너 뷰 */}
+        {view === "screener" && (
+          <div
+            className="view-enter"
+            key="view-screener"
+            role="tabpanel"
+            aria-labelledby="tab-screener"
           >
-            관리자
-          </Link>
-          {/* 종목 선택 */}
-          <select
-            className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none"
-            value={selectedCode}
-            onChange={(e) => setSelectedCode(e.target.value)}
+            <Screener onSelectTicker={handleScreenerSelect} />
+          </div>
+        )}
+
+        {/* 종목 준비중 안내 */}
+        {isDetailView && effectiveTicker && !dashView.ready && (
+          <div
+            className="rise d2 card-soft px-5 py-4 mb-5 flex items-center gap-3"
+            style={{ background: C.amberTint, borderColor: `${C.amberSoft}66` }}
           >
-            {stocks.map((s) => (
-              <option key={s.stock_code} value={s.stock_code}>
-                {s.name} ({s.stock_code})
-              </option>
-            ))}
-          </select>
-          {/* 봉주기 */}
-          <div className="flex gap-1">
-            {INTERVAL_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                className={`px-2 py-1 text-xs rounded border transition
-                  ${interval === opt.id
-                    ? "bg-zinc-700 border-zinc-600 text-zinc-100"
-                    : "border-zinc-800 text-zinc-500 hover:text-zinc-300"}`}
-                onClick={() => setInterval(opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
+            <span className="text-xl">🛠️</span>
+            <p className="text-[13.5px] leading-relaxed" style={{ color: C.amber }}>
+              <b>{dashView.header.name}</b>의 핵심 데이터를 준비하고 있어요. 일부 화면은 집계가 끝나면
+              채워져요.
+            </p>
           </div>
-          {loading && <span className="text-xs text-zinc-500 animate-pulse">갱신 중…</span>}
-        </div>
-      </header>
+        )}
 
-      {error && (
-        <div className="mx-4 mt-2 px-3 py-2 text-xs bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded">
-          ⚠ {error} — 백엔드(localhost:8001)가 실행 중인지 확인하세요.
-        </div>
-      )}
-
-      {/* 메인 그리드 — 1화면 집중 원칙 */}
-      <div className="flex-1 grid grid-cols-[1fr_280px] gap-3 p-3 overflow-hidden" style={{ minHeight: 0 }}>
-        {/* 좌: 차트 + 3관점 시그널 */}
-        <div className="flex flex-col gap-3 overflow-hidden" style={{ minHeight: 0 }}>
-          {/* 차트 */}
-          <div className="glass-card flex-1 p-3 overflow-hidden" style={{ minHeight: 0 }}>
-            <div className="h-full">
-              {candles.length > 0 ? (
-                <SignalChart
-                  candles={candles}
-                  signals={snapshot?.signals}
-                  bandLow={snapshot?.price.band_low}
-                  bandHigh={snapshot?.price.band_high}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-zinc-600 text-sm">
-                  {loading ? "차트 로딩 중…" : "데이터 없음"}
-                </div>
-              )}
-            </div>
+        {/* ── 홈 ── */}
+        {view === "home" && (
+          <div
+            id="view-home"
+            role="tabpanel"
+            aria-labelledby="tab-home"
+            className="view-enter"
+            key={`home-${effectiveTicker}`}
+          >
+            <TrafficLightHero midSignal={dashView.midSignal} headline={dashView.headline} />
+            <WhyCards cards={dashView.reasonCards} />
+            <GapCompare gap={dashView.gap} />
+            <CycleBar cycle={dashView.cycle} />
+            <HorizonRows rows={dashView.horizons} />
+            <LineChartWithMarkers chart={dashView.chart} />
+            <EvidenceAccordion sections={dashView.evidence} />
+            <AiReasonings items={dashView.aiReasonings} />
           </div>
+        )}
 
-          {/* 3관점 시그널 카드 */}
-          <div className="grid grid-cols-3 gap-3 flex-shrink-0">
-            {(["SHORT", "MID", "LONG"] as const).map((persp) => (
-              <SignalCard
-                key={persp}
-                perspective={persp}
-                signal={snapshot?.signals[persp.toLowerCase() as "short" | "mid" | "long"] ?? null}
-                reasoning={snapshot?.reasonings[persp.toLowerCase() as "short" | "mid" | "long"] ?? null}
+        {/* ── 캔들 차트 ── */}
+        {view === "chart" && (
+          <div
+            id="view-chart"
+            role="tabpanel"
+            aria-labelledby="tab-chart"
+            className="view-enter"
+            key={`chart-${effectiveTicker}`}
+          >
+            <CandleChart code={effectiveTicker} />
+          </div>
+        )}
+
+        {/* ── 뉴스 ── */}
+        {view === "news" && (
+          <div
+            id="view-news"
+            role="tabpanel"
+            aria-labelledby="tab-news"
+            className="view-enter"
+            key={`news-${effectiveTicker}`}
+          >
+            <NewsBanner sentiScore={newsView.sentiScore} analyzedCount={newsView.analyzedCount} />
+            <NewsFilters active={newsFilter} onChange={setNewsFilter} days={newsDays} onDaysChange={setNewsDays} />
+            <NewsList articles={filteredArticles} state={newsState} />
+          </div>
+        )}
+
+        {/* ── 재무·공시 ── */}
+        {view === "finance" && (
+          <div
+            id="view-finance"
+            role="tabpanel"
+            aria-labelledby="tab-finance"
+            className="view-enter"
+            key={`finance-${effectiveTicker}`}
+          >
+            <section className="rise d2 card relative overflow-hidden px-6 sm:px-8 py-7 mb-5">
+              <div
+                aria-hidden="true"
+                className="absolute inset-x-0 -top-20 h-48 bg-gradient-to-b from-brand-amberTint/70 to-transparent pointer-events-none"
               />
-            ))}
+              <div className="relative">
+                <h2 className="text-[22px] sm:text-[26px] font-bold leading-snug tracking-[-0.01em]">
+                  <span>{dashView.financeName}</span>,{" "}
+                  <span style={{ color: C.amber }}>돈은 잘 벌고</span> 있을까요? 📊
+                </h2>
+                <p className="text-inkMuted text-sm sm:text-[15px] mt-2.5 leading-relaxed max-w-[46ch]">
+                  어려운 재무 숫자를 쉬운 말로 풀어드릴게요. &quot;이 회사가 돈을 잘 버는지, 지금 주가가
+                  비싼지&quot; 한눈에 살펴보세요.
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5 mt-5">
+                  <span
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
+                    style={{ background: C.amberTint, border: `1px solid ${C.amberSoft}66` }}
+                  >
+                    <span className="text-base">🏛️</span>
+                    <span className="font-bold text-sm" style={{ color: C.amber }}>
+                      출처 · 금융감독원 전자공시(DART)
+                    </span>
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
+                    style={{ background: "#EFF3F9" }}
+                  >
+                    <span className="text-base">🧾</span>
+                    <span className="font-semibold text-sm text-inkMuted">공식 공시 문서 기반</span>
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <FinanceCards cards={dashView.financeCards} />
+            <FinanceBand band={dashView.financeBand} />
+            <FinanceDisclosure dartUrl={dashView.dartUrl} />
           </div>
-        </div>
+        )}
 
-        {/* 우: 감성 게이지 + 키워드 + 재무 + 사이클 */}
-        <div className="flex flex-col gap-3 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
-          {/* 종목명 */}
-          {stock && (
-            <div className="px-1">
-              <h1 className="text-base font-semibold">{stock.name}</h1>
-              <p className="text-xs text-zinc-500">{stock.stock_code} · {stock.market}</p>
-            </div>
-          )}
+        <footer className="text-center text-faint text-xs mt-9" style={{ color: C.faint }}>
+          본 화면은 투자 참고용이며 투자 권유가 아니에요. · Semi Senti
+        </footer>
+      </main>
 
-          {/* 감성 게이지 */}
-          <div className="glass-card p-4">
-            <p className="text-xs text-zinc-400 mb-2">감성 지수</p>
-            <SentimentGauge sentiment={snapshot?.sentiment || sentimentEmpty} />
-          </div>
+      {/* ── 모바일 하단 탭바 ── */}
+      <MobileTabBar view={view} onViewChange={setView} />
 
-          {/* 핵심 키워드 */}
-          <div className="glass-card p-4">
-            <p className="text-xs text-zinc-400 mb-2">핵심 키워드</p>
-            <KeywordTrend keywords={snapshot?.sentiment.top_keywords} />
-          </div>
-
-          {/* 재무 요약 */}
-          <div className="glass-card p-4">
-            <p className="text-xs text-zinc-400 mb-2">재무 & 밴드</p>
-            {snapshot ? (
-              <FinancialSummary price={snapshot.price} financials={snapshot.financials} />
-            ) : (
-              <p className="text-xs text-zinc-500">데이터 없음</p>
-            )}
-          </div>
-
-          {/* 업황 사이클 */}
-          <div className="glass-card p-4">
-            <p className="text-xs text-zinc-400 mb-2">업황 사이클</p>
-            <CyclePanel cycle={snapshot?.cycle ?? null} />
-          </div>
-
-          {/* 차트 요약 */}
-          {snapshot?.chart_summary && (
-            <div className="px-1 text-[10px] text-zinc-600">
-              일봉 {snapshot.chart_summary.first_date} ~ {snapshot.chart_summary.last_date} ({snapshot.chart_summary.bar_count}거래일)
-            </div>
-          )}
-        </div>
-      </div>
-    </main>
+      {toast && <SoonToast message={toast} onDone={() => setToast(null)} />}
+    </div>
   );
 }
