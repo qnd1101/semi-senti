@@ -125,7 +125,9 @@ REM 주가(차트) — 키 불필요
 python -m semi_senti.cli collect price --stock-code 005930 --market KOSPI --force
 
 REM 재무·공시(DART 키 필요) + 뉴스(네이버 키 필요) 통합 동기화
-curl -X POST "http://localhost:8001/api/sync/005930?force=true"
+REM PowerShell 에서는 curl 이 Invoke-WebRequest 별칭이므로 curl.exe 로 호출
+curl.exe -X POST "http://localhost:8001/api/sync/005930?force=true"
+REM (PowerShell 네이티브) Invoke-RestMethod -Method Post -Uri "http://localhost:8001/api/sync/005930?force=true"
 ```
 
 - 백엔드 기동 시 `LiveDataPipeline`이 기본 종목을 자동 동기화하고, 이후 주기 폴링(기본 60초)으로 최신화합니다.
