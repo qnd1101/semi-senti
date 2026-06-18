@@ -34,7 +34,7 @@
 |------|------|:----:|------|
 | Python | **3.12** | ✅ | 백엔드·수집·NLP |
 | PostgreSQL | **15+** | ✅ | 로컬 단일 인스턴스 |
-| JDK | **1.8+** | ✅ | KoNLPy(형태소 분석) 구동용 |
+| JDK | **1.8+** | ✅ | KoNLPy 구동용 — 설치 후 **JAVA_HOME 환경변수 설정 필수** |
 | Node.js | **20 LTS+** | ✅ | Next.js 대시보드 |
 | RAM | 8GB+ | 권장 | 형태소 분석·대량 연산 |
 
@@ -212,7 +212,7 @@ semi-senti/
 | `connection refused :5432` | PostgreSQL 서비스 실행 확인 (`net start postgresql-x64-15`), `.env`의 `DATABASE_URL` 포트 확인 |
 | `password authentication failed "semisenti"` | 2)의 `CREATE ROLE` 실행 여부 확인. 비밀번호는 `semisenti` |
 | `No module named semi_senti` | 가상환경에서 `pip install -e .` 실행 (src-layout 패키지 설치 누락) |
-| `Java gateway process exited` (KoNLPy) | JDK 1.8+ 설치 후 `JAVA_HOME` 설정·재시작 |
+| `Java gateway process exited` / `No jvm.dll found` (KoNLPy) | JDK 1.8+ 설치 후 **`JAVA_HOME`을 JDK 루트로 설정**하고 새 터미널에서 실행. 미설정 시 정규식 폴백으로 동작하나 감성 정확도 저하 |
 | 포트 8001/3000 충돌 | `netstat -ano | findstr :8001` 후 `taskkill /PID <PID> /F`, 또는 `.env`의 `API_PORT` 변경 |
 | 뉴스가 너무 긍정 일색 | `.env`의 `SENTIMENT_NORMALIZATION_K` 값을 키우면 보수적으로(권장 30) |
 
