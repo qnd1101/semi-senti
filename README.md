@@ -90,6 +90,7 @@ SENTIMENT_NORMALIZATION_K=30
 py -3.12 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -e .           REM semi_senti 패키지 설치 (src-layout, 최초 1회 필수)
 
 python db_seed.py          REM 스키마 생성 + 기준 종목 등록 (최초 1회)
 python -m semi_senti.api    REM FastAPI 기동 → http://localhost:8001
@@ -196,6 +197,7 @@ semi-senti/
 |------|------|
 | `connection refused :5432` | PostgreSQL 서비스 실행 확인 (`net start postgresql-x64-15`), `.env`의 `DATABASE_URL` 포트 확인 |
 | `password authentication failed "semisenti"` | 2)의 `CREATE ROLE` 실행 여부 확인. 비밀번호는 `semisenti` |
+| `No module named semi_senti` | 가상환경에서 `pip install -e .` 실행 (src-layout 패키지 설치 누락) |
 | `Java gateway process exited` (KoNLPy) | JDK 1.8+ 설치 후 `JAVA_HOME` 설정·재시작 |
 | 포트 8001/3000 충돌 | `netstat -ano | findstr :8001` 후 `taskkill /PID <PID> /F`, 또는 `.env`의 `API_PORT` 변경 |
 | 뉴스가 너무 긍정 일색 | `.env`의 `SENTIMENT_NORMALIZATION_K` 값을 키우면 보수적으로(권장 30) |
